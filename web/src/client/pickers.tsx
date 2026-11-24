@@ -1,10 +1,10 @@
 import { useEffect, useState } from "preact/hooks";
 import { api } from "./api";
-import { Icon, Img, Modal, addDays, minutes, shortDay, toast, type RecipeSummary } from "./ui";
+import { Icon, Img, Modal, addDays, minutes, robotLabel, shortDay, toast, type RecipeSummary } from "./ui";
 
 export interface MealDto {
   day: string; slot: "midi" | "soir"; leftoverOf: string | null; keepNext: boolean;
-  recipe: { id: string; title: string; image: string | null; totalMinutes: number; usesRobot: boolean; category: string };
+  recipe: { id: string; title: string; image: string | null; totalMinutes: number; usesRobot: boolean; devices?: string[]; category: string };
 }
 
 /** Choisir une recette pour un créneau : favoris d'abord, recherche dans toute la base. */
@@ -26,7 +26,7 @@ export function RecipePicker({ title, onPick, onClose }: { title: string; onPick
         {list.map((r) => (
           <button class="pick" onClick={() => onPick(r)}>
             <Img src={r.image} class="pick-img" />
-            <span><b>{r.title}</b><span class="muted">{[minutes(r.totalMinutes), r.usesRobot ? "" : "sans robot"].filter(Boolean).join(" · ")}</span></span>
+            <span><b>{r.title}</b><span class="muted">{[minutes(r.totalMinutes), r.usesRobot ? "" : robotLabel(r).toLowerCase()].filter(Boolean).join(" · ")}</span></span>
           </button>
         ))}
         {!list.length && <p class="muted">{q.trim() ? "Aucune recette." : "Pas encore de favoris : cherchez une recette."}</p>}

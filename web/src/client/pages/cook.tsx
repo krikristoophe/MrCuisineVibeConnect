@@ -16,7 +16,7 @@ export function CookPage({ me: _me }: { me: Me }) {
 
   return (
     <main class="page cook">
-      <div class="row">
+      <div class="row topbar">
         <a class="round" href="/" aria-label="Retour à l'accueil"><Icon.back /></a>
         {r && <span class={`status ${r.online ? (cooking ? "on" : "idle") : "off"}`}><i />{r.name} · {statusLabel(r)}{s?.recipe ? ` · ${s.recipe.title}` : ""}</span>}
       </div>

@@ -2,12 +2,17 @@ import { useState } from "preact/hooks";
 import type { Me } from "../app";
 import { api } from "../api";
 import { navigate } from "../router";
-import { Icon, Img, Menu, minutes, toast, useApi } from "../ui";
+import { Icon, Img, Menu, minutes, robotLabel, toast, useApi } from "../ui";
 import { SlotPicker } from "../pickers";
 import { sendToRobot, useRobots } from "../robot";
 import { machineTags, qty, type Recipe } from "../recipe-format";
 
-interface Dto { recipe: Recipe; favorite: boolean; usesRobot: boolean; cooked: { count: number; last_at: number } | null }
+interface Dto { recipe: Recipe; favorite: boolean; usesRobot: boolean; devices: string[]; cooked: { count: number; last_at: number } | null }
+
+async function copyLink(url: string) {
+  try { await navigator.clipboard.writeText(url); toast("Lien copié"); }
+  catch { prompt("Lien de la recette", url); }
+}
 
 export function RecipePage({ me: _me, id }: { me: Me; id: string }) {
   const { data, error, reload } = useApi<Dto>(`/api/recipes/${encodeURIComponent(id)}`);
@@ -54,11 +59,12 @@ export function RecipePage({ me: _me, id }: { me: Me; id: string }) {
 
   return (
     <main class="page recipe">
-      <div class="row-between">
+      <div class="row-between topbar">
         <a class="round" href="/recettes" aria-label="Retour" onClick={(e) => { if (history.length > 1) { e.preventDefault(); history.back(); } }}><Icon.back /></a>
         <div class="row">
           <button class={`round ${data.favorite ? "fav-on" : ""}`} aria-label={data.favorite ? "Retirer des favoris" : "Ajouter aux favoris"} aria-pressed={data.favorite} onClick={toggleFav}>{Icon.star(data.favorite)}</button>
           <Menu items={[
+            { label: "Copier le lien", onClick: () => copyLink(`${location.origin}/recettes/${encodeURIComponent(r.id)}`) },
             { label: "Modifier", onClick: () => navigate(`/recettes/${encodeURIComponent(r.id)}/modifier`) },
             { label: "Dupliquer", onClick: duplicate },
             { label: "Supprimer", danger: true, onClick: remove },
@@ -73,7 +79,7 @@ export function RecipePage({ me: _me, id }: { me: Me; id: string }) {
             {r.totalMinutes ? <span class="tag big">{minutes(r.totalMinutes)}</span> : null}
             {r.servings ? <span class="tag big">{r.servings} {r.servingUnit || "pers."}</span> : null}
             {r.ratingCount ? <span class="tag big">★ {(r.rating ?? 0).toFixed(1).replace(".", ",")}</span> : null}
-            <span class="tag big">{data.usesRobot ? "Au robot" : "Sans robot"}</span>
+            <span class="tag big">{robotLabel(data)}</span>
           </div>
           {data.cooked && <p class="muted small">Cuisinée {data.cooked.count} fois par le foyer.</p>}
           {r.notes && <p class="muted">{r.notes}</p>}

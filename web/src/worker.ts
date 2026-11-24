@@ -6,6 +6,7 @@ import { favoritesApi, recipesApi } from "./server/recipes";
 import { weekApi } from "./server/week";
 import { robotApi, robotsApp } from "./server/robot";
 import { mcp } from "./server/mcp";
+import { oauth, wellKnown } from "./server/oauth";
 import { now } from "./server/util";
 
 export { RobotHub } from "./server/robot";
@@ -18,6 +19,8 @@ app.onError((err, c) => {
 });
 
 app.route("/auth", auth);
+app.route("/.well-known", wellKnown);
+app.route("/oauth", oauth);
 app.route("/api/robot", robotApi); // appelé par le robot (jeton cmr_)
 app.route("/api/robots", robotsApp); // appli
 app.route("/api/recipes", recipesApi);

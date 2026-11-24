@@ -96,14 +96,14 @@ async function upsertUser(env: Env, sub: string, email: string, name: string, pi
   return { id, email, name, picture, household_id: household };
 }
 
-/** Utilisateur de la session (cookie) ou d'un jeton personnel (Authorization: Bearer, pour le MCP). */
+/** Utilisateur de la session (cookie) ou d'un jeton d'accès OAuth (Authorization: Bearer cma_…, pour le MCP). */
 export async function currentUser(c: Context<AppEnv>): Promise<User | null> {
   const header = c.req.header("authorization");
-  if (header?.startsWith("Bearer cmx_")) {
+  if (header?.startsWith("Bearer cma_")) {
     const hash = await sha256(header.slice(7));
     return c.env.DB.prepare(
-      "SELECT u.id, u.email, u.name, u.picture, u.household_id FROM api_tokens t JOIN users u ON u.id = t.user_id WHERE t.token_hash = ?"
-    ).bind(hash).first<User>();
+      "SELECT u.id, u.email, u.name, u.picture, u.household_id FROM oauth_tokens t JOIN users u ON u.id = t.user_id WHERE t.token_hash = ? AND t.kind = 'access' AND t.expires_at > ?"
+    ).bind(hash, now()).first<User>();
   }
   const sid = getCookie(c, SESSION_COOKIE);
   if (!sid) return null;

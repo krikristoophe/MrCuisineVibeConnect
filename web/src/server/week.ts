@@ -10,7 +10,7 @@ export interface Meal {
   slot: Slot;
   leftoverOf: string | null;
   keepNext: boolean;
-  recipe: { id: string; title: string; image: string | null; totalMinutes: number; usesRobot: boolean; category: string };
+  recipe: { id: string; title: string; image: string | null; totalMinutes: number; usesRobot: boolean; devices: string[]; category: string };
 }
 
 /** Créneau suivant : midi → soir du même jour, soir → midi du lendemain. */
@@ -20,16 +20,16 @@ export function nextSlot(day: string, slot: Slot): { day: string; slot: Slot } {
 
 export async function mealsBetween(env: Env, householdId: string, from: string, to: string): Promise<Meal[]> {
   const rows = await env.DB.prepare(
-    `SELECT m.day, m.slot, m.leftover_of, r.id, r.title, r.image, r.total_minutes, r.uses_robot, r.category
+    `SELECT m.day, m.slot, m.leftover_of, r.id, r.title, r.image, r.total_minutes, r.uses_robot, r.devices, r.category
      FROM meals m JOIN recipes r ON r.id = m.recipe_id
      WHERE m.household_id = ? AND m.day BETWEEN ? AND ? ORDER BY m.day, CASE m.slot WHEN 'midi' THEN 0 ELSE 1 END`
-  ).bind(householdId, from, addDays(to, 1)).all<{ day: string; slot: Slot; leftover_of: string | null; id: string; title: string; image: string | null; total_minutes: number; uses_robot: number; category: string }>();
+  ).bind(householdId, from, addDays(to, 1)).all<{ day: string; slot: Slot; leftover_of: string | null; id: string; title: string; image: string | null; total_minutes: number; uses_robot: number; devices: string; category: string }>();
   const leftovers = new Set(rows.results.filter((r) => r.leftover_of).map((r) => r.leftover_of));
   return rows.results
     .filter((r) => r.day <= to)
     .map((r) => ({
       day: r.day, slot: r.slot, leftoverOf: r.leftover_of, keepNext: leftovers.has(`${r.day}:${r.slot}`),
-      recipe: { id: r.id, title: r.title, image: r.image, totalMinutes: r.total_minutes, usesRobot: !!r.uses_robot, category: r.category },
+      recipe: { id: r.id, title: r.title, image: r.image, totalMinutes: r.total_minutes, usesRobot: !!r.uses_robot, devices: r.devices ? r.devices.split(",") : [], category: r.category },
     }));
 }
 

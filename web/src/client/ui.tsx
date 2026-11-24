@@ -107,14 +107,20 @@ export function useApi<T>(path: string | null, deps: unknown[] = []): { data: T 
   return { data, error, reload: () => setTick((t) => t + 1) };
 }
 
-export interface RecipeSummary { id: string; title: string; image: string | null; totalMinutes: number; rating: number; ratingCount: number; category: string; usesRobot: boolean; favorite?: boolean }
+export interface RecipeSummary { id: string; title: string; image: string | null; totalMinutes: number; rating: number; ratingCount: number; category: string; usesRobot: boolean; devices?: string[]; favorite?: boolean }
+
+/** « Au robot » = faisable sur le Connect ; les recettes d'autres modèles ne sont pas « sans robot ». */
+export function robotLabel(r: { usesRobot: boolean; devices?: string[] }): string {
+  if (r.usesRobot || r.devices?.includes("MC2.0")) return "Au robot";
+  return r.devices?.length ? "Autre modèle de robot" : "Sans robot";
+}
 
 export function RecipeCard({ r }: { r: RecipeSummary }) {
   return (
     <a class="card" href={`/recettes/${encodeURIComponent(r.id)}`}>
       <Img src={r.image} class="card-img" />
       <span class="card-title">{r.title}</span>
-      <span class="card-meta">{[r.ratingCount ? `★ ${r.rating.toFixed(1).replace(".", ",")}` : "", minutes(r.totalMinutes), r.usesRobot ? "" : "sans robot"].filter(Boolean).join(" · ")}</span>
+      <span class="card-meta">{[r.ratingCount ? `★ ${r.rating.toFixed(1).replace(".", ",")}` : "", minutes(r.totalMinutes), r.usesRobot ? "" : robotLabel(r).toLowerCase()].filter(Boolean).join(" · ")}</span>
       {r.favorite && <span class="card-fav" aria-label="Favori">{Icon.star(true)}</span>}
     </a>
   );

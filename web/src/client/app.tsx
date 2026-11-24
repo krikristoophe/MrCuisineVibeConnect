@@ -23,7 +23,8 @@ export interface Me {
   members: { id: string; name: string; picture: string | null }[];
   robots: { id: string; name: string; last_seen: number | null }[];
   prefs: { finished: number; action: number; meals: number };
-  tokens: { label: string; created_at: number }[];
+  assistants: { client_id: string; name: string; since: number }[];
+  mcpUrl: string;
   vapidPublicKey: string;
 }
 

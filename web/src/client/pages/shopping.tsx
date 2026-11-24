@@ -9,7 +9,7 @@ export function Shopping({ start }: { start: string | null }) {
   const left = data?.items.filter((i) => !i.checked).length ?? 0;
   return (
     <main class="page narrow">
-      <div class="row"><a class="round" href={`/semaine${start ? `?du=${start}` : ""}`} aria-label="Retour à la semaine"><Icon.back /></a></div>
+      <div class="row topbar"><a class="round" href={`/semaine${start ? `?du=${start}` : ""}`} aria-label="Retour à la semaine"><Icon.back /></a></div>
       <header class="head"><div><p class="muted">{data ? `${shortDay(data.from)} → ${shortDay(data.to)} · ${left} article${left > 1 ? "s" : ""} à acheter` : ""}</p><h1>Courses</h1></div></header>
       {data && !data.items.length && <p class="panel pad muted">Rien à acheter : prévoyez des repas dans la semaine.</p>}
       <div class="panel pad-x">

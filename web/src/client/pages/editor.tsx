@@ -31,7 +31,7 @@ export function Editor({ id }: { id: string | null }) {
 
   return (
     <main class="page narrow">
-      <div class="row"><a class="round" href={id ? `/recettes/${encodeURIComponent(id)}` : "/recettes"} aria-label="Annuler"><Icon.close /></a><h1>{id ? "Modifier la recette" : "Nouvelle recette"}</h1></div>
+      <div class="row topbar"><a class="round" href={id ? `/recettes/${encodeURIComponent(id)}` : "/recettes"} aria-label="Annuler"><Icon.close /></a><h1>{id ? "Modifier la recette" : "Nouvelle recette"}</h1></div>
       <form class="stack" onSubmit={save}>
         <div class="panel pad stack">
           <label class="field"><span>Titre</span><input required value={r.title} onInput={(e) => set({ title: (e.target as HTMLInputElement).value })} /></label>

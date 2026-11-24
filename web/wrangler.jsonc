@@ -9,7 +9,7 @@
   "assets": {
     "directory": "./dist",
     "not_found_handling": "single-page-application",
-    "run_worker_first": ["/api/*", "/auth/*", "/mcp", "/mcp/*"]
+    "run_worker_first": ["/api/*", "/auth/*", "/mcp", "/mcp/*", "/oauth/*", "/.well-known/*"]
   },
   "d1_databases": [
     { "binding": "DB", "database_name": "claudimix", "database_id": "293471c5-a598-4e47-9f57-4b36a24f315d", "migrations_dir": "migrations" }

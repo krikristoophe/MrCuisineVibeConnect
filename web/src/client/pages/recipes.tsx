@@ -1,4 +1,4 @@
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import { api } from "../api";
 import { navigate } from "../router";
 import { Icon, Menu, RecipeCard, useApi, type RecipeSummary } from "../ui";
@@ -6,6 +6,7 @@ import { Icon, Menu, RecipeCard, useApi, type RecipeSummary } from "../ui";
 const FILTERS = [
   { key: "", label: "Toutes" },
   { key: "robot", label: "Au robot" },
+  { key: "autre", label: "Autre modèle" },
   { key: "sans", label: "Sans robot" },
   { key: "rapide", label: "30 min max" },
 ];
@@ -16,14 +17,29 @@ export function Recipes({ params }: { params: URLSearchParams }) {
   const category = params.get("categorie") ?? "";
   const [list, setList] = useState<RecipeSummary[]>([]);
   const [more, setMore] = useState(false);
+  const loading = useRef(false);
+  const sentinel = useRef<HTMLDivElement>(null);
   const { data: cats } = useApi<{ categories: string[] }>("/api/recipes/categories");
 
   const load = async (offset: number) => {
+    loading.current = true;
     const u = new URLSearchParams({ q, filter, category, offset: String(offset), limit: "40" });
-    const d = await api<{ recipes: RecipeSummary[] }>(`/api/recipes?${u}`);
-    setList((old) => (offset ? [...old, ...d.recipes] : d.recipes));
-    setMore(d.recipes.length === 40);
+    try {
+      const d = await api<{ recipes: RecipeSummary[] }>(`/api/recipes?${u}`);
+      setList((old) => (offset ? [...old, ...d.recipes] : d.recipes));
+      setMore(d.recipes.length === 40);
+    } finally { loading.current = false; }
   };
+  // Scroll infini : la page suivante se charge quand le bas de la liste approche.
+  useEffect(() => {
+    const el = sentinel.current;
+    if (!el || !more) return;
+    const io = new IntersectionObserver((entries) => {
+      if (entries[0].isIntersecting && !loading.current) load(list.length);
+    }, { rootMargin: "600px" });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [more, list.length]);
   useEffect(() => { const t = setTimeout(() => load(0), q ? 200 : 0); return () => clearTimeout(t); }, [q, filter, category]);
 
   const setParam = (k: string, v: string) => {
@@ -46,7 +62,7 @@ export function Recipes({ params }: { params: URLSearchParams }) {
       </div>
       <div class="cards">{list.map((r) => <RecipeCard r={r} />)}</div>
       {!list.length && <p class="muted">Aucune recette ne correspond.</p>}
-      {more && <button class="btn2 center" onClick={() => load(list.length)}>Voir plus</button>}
+      {more && <div ref={sentinel} class="sentinel" aria-hidden="true" />}
     </main>
   );
 }

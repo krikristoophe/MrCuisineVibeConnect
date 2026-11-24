@@ -2,7 +2,7 @@ import { useState } from "preact/hooks";
 import type { Me } from "../app";
 import { api } from "../api";
 import { navigate } from "../router";
-import { Icon, Img, addDays, longDay, minutes, shortDay, toast, useApi } from "../ui";
+import { Icon, Img, addDays, longDay, minutes, robotLabel, shortDay, toast, useApi } from "../ui";
 import { RecipePicker, type MealDto } from "../pickers";
 
 interface WeekDto { start: string; today: string; days: string[]; meals: MealDto[]; times: { midi: string; soir: string } }
@@ -34,7 +34,7 @@ function MealCard({ m, onChange, onPick }: { m: MealDto; onChange: () => void; o
       <div class="meal-body">
         <span class="cap">{m.slot}</span>
         <a class="meal-title" href={`/recettes/${encodeURIComponent(m.recipe.id)}`}>{m.recipe.title}</a>
-        <span class="tags">{m.recipe.totalMinutes > 0 && <span class="tag">{minutes(m.recipe.totalMinutes)}</span>}<span class="tag">{m.recipe.usesRobot ? "Au robot" : "Sans robot"}</span></span>
+        <span class="tags">{m.recipe.totalMinutes > 0 && <span class="tag">{minutes(m.recipe.totalMinutes)}</span>}<span class="tag">{robotLabel(m.recipe)}</span></span>
         <span class="meal-actions"><button class="btn2 sm" onClick={onPick}>Changer</button><button class="btn2 sm" onClick={remove}>Retirer</button></span>
         <button class={`keep ${m.keepNext ? "on" : ""}`} onClick={toggleKeep} aria-pressed={m.keepNext}>
           <span class="box">{m.keepNext && <Icon.check />}</span>{nextLabel(m.slot)}

@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import type { AppEnv } from "./env";
-import { addDays, humanCode, now, parisDay, randomId, sha256 } from "./util";
+import { addDays, humanCode, now, parisDay } from "./util";
 import { getRecipe } from "./recipes";
 import { householdTimes, mealsBetween, startBy, type Slot } from "./week";
 
@@ -13,8 +13,11 @@ householdApi.get("/me", async (c) => {
   const members = await c.env.DB.prepare("SELECT id, name, picture FROM users WHERE household_id = ? ORDER BY created_at").bind(user.household_id).all();
   const robots = await c.env.DB.prepare("SELECT id, name, last_seen FROM robots WHERE household_id = ? ORDER BY created_at").bind(user.household_id).all();
   const prefs = (await c.env.DB.prepare("SELECT finished, action, meals FROM notify_prefs WHERE user_id = ?").bind(user.id).first()) ?? { finished: 1, action: 1, meals: 0 };
-  const tokens = await c.env.DB.prepare("SELECT label, created_at FROM api_tokens WHERE user_id = ? ORDER BY created_at").bind(user.id).all();
-  return c.json({ user, household: hh, members: members.results, robots: robots.results, prefs, tokens: tokens.results, vapidPublicKey: c.env.VAPID_PUBLIC_KEY });
+  const assistants = await c.env.DB.prepare(
+    `SELECT c.client_id, c.name, MIN(t.created_at) AS since FROM oauth_tokens t JOIN oauth_clients c ON c.client_id = t.client_id
+     WHERE t.user_id = ? AND t.kind = 'refresh' AND t.expires_at > ? GROUP BY c.client_id ORDER BY since`
+  ).bind(user.id, now()).all();
+  return c.json({ user, household: hh, members: members.results, robots: robots.results, prefs, assistants: assistants.results, mcpUrl: `${new URL(c.req.url).origin}/mcp`, vapidPublicKey: c.env.VAPID_PUBLIC_KEY });
 });
 
 householdApi.patch("/household", async (c) => {
@@ -72,16 +75,9 @@ householdApi.get("/notifications/latest", async (c) => {
   return c.json({ notification: n ?? null });
 });
 
-householdApi.post("/tokens", async (c) => {
-  const { label } = (await c.req.json().catch(() => ({}))) as { label?: string };
-  const token = "cmx_" + randomId(32);
-  await c.env.DB.prepare("INSERT INTO api_tokens (token_hash, user_id, label, created_at) VALUES (?, ?, ?, ?)")
-    .bind(await sha256(token), c.get("user").id, (label ?? "").trim().slice(0, 40) || "Assistant IA", now()).run();
-  return c.json({ token });
-});
-
-householdApi.delete("/tokens", async (c) => {
-  await c.env.DB.prepare("DELETE FROM api_tokens WHERE user_id = ?").bind(c.get("user").id).run();
+/** Déconnecte un assistant IA (MCP) : ses jetons d'accès et de renouvellement sont supprimés. */
+householdApi.delete("/assistants/:clientId", async (c) => {
+  await c.env.DB.prepare("DELETE FROM oauth_tokens WHERE user_id = ? AND client_id = ?").bind(c.get("user").id, c.req.param("clientId")).run();
   return c.json({ ok: true });
 });
 

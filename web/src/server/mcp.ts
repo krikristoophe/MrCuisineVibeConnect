@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import type { AppEnv, Env, User } from "./env";
+import { cors } from "hono/cors";
 import { currentUser } from "./auth";
 import { getRecipe, saveRecipe, searchRecipes, type RecipeJson } from "./recipes";
 import { addDays, mondayOf, now, parisDay, randomId } from "./util";
@@ -7,7 +8,7 @@ import { mealsBetween } from "./week";
 
 /**
  * Serveur MCP (transport HTTP, réponses JSON) pour qu'une IA lise et adapte les recettes et la
- * semaine. Authentification : jeton personnel créé dans « Mon compte » (Authorization: Bearer cmx_…).
+ * semaine. Authentification OAuth 2.1 (voir oauth.ts) : l'assistant connecte le compte Claudimix.
  */
 const TOOLS = [
   { name: "search_recipes", description: "Cherche des recettes (titre, catégorie, tags, ingrédients). filter : robot | sans | rapide.",
@@ -66,12 +67,16 @@ async function callTool(env: Env, user: User, name: string, a: Args): Promise<un
 }
 
 export const mcp = new Hono<AppEnv>();
+mcp.use("*", cors({ origin: "*", allowHeaders: ["authorization", "content-type", "mcp-protocol-version", "mcp-session-id"], exposeHeaders: ["WWW-Authenticate"] }));
 
 mcp.get("/", (c) => c.text("Méthode non prise en charge : utilisez POST.", 405));
 
 mcp.post("/", async (c) => {
   const user = await currentUser(c);
-  if (!user) return c.json({ error: "Jeton requis : créez-le dans Claudimix › Mon compte." }, 401, { "WWW-Authenticate": "Bearer" });
+  if (!user) {
+    const meta = `${new URL(c.req.url).origin}/.well-known/oauth-protected-resource`;
+    return c.json({ error: "Connexion requise." }, 401, { "WWW-Authenticate": `Bearer resource_metadata="${meta}"` });
+  }
   const msg = (await c.req.json()) as { jsonrpc: string; id?: number | string; method: string; params?: { name?: string; arguments?: Args } };
   if (msg.id === undefined) return c.body(null, 202); // notification
   const reply = (result: unknown) => c.json({ jsonrpc: "2.0", id: msg.id, result });

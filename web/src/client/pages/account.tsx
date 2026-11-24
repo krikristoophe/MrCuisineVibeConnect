@@ -12,7 +12,6 @@ function Switch({ on, label, onChange }: { on: boolean; label: string; onChange:
 export function Account({ me, onChange }: { me: Me; onChange: () => void }) {
   const [push, setPush] = useState<string>("…");
   const [invite, setInvite] = useState<string>("");
-  const [token, setToken] = useState<string>("");
   const [name, setName] = useState(me.household.name);
   useEffect(() => { pushState().then(setPush); }, []);
 
@@ -82,11 +81,13 @@ export function Account({ me, onChange }: { me: Me; onChange: () => void }) {
           <section class="stack-sm"><p class="cap">Compte</p>
             <div class="panel pad-x">
               <div class="line"><Avatar me={me} size={36} /><span class="grow">Connecté avec Google<br /><span class="muted small">{me.user.email}</span></span></div>
-              <div class="line"><span class="grow">Accès pour un assistant IA (MCP)<br /><span class="muted small">{me.tokens.length ? `${me.tokens.length} jeton actif` : "Aucun jeton"}</span></span>
-                <button class="link" onClick={async () => setToken((await api<{ token: string }>("/api/tokens", { body: { label: "Assistant IA" } })).token)}>Créer un jeton</button>
-                {me.tokens.length > 0 && <button class="link danger" onClick={async () => { await api("/api/tokens", { method: "DELETE" }); setToken(""); onChange(); }}>Tout révoquer</button>}
-              </div>
-              {token && <p class="line small mono">Adresse : {location.origin}/mcp<br />Jeton (affiché une seule fois) : {token}</p>}
+              <div class="line"><span class="grow">Assistant IA (MCP)<br /><span class="muted small">Dans Claude, ajoutez un connecteur avec l'adresse ci-dessous : la connexion se fait avec ce compte.</span></span>
+                <button class="link" onClick={() => navigator.clipboard.writeText(me.mcpUrl).then(() => toast("Adresse copiée"))}>Copier l'adresse</button></div>
+              <p class="line small mono">{me.mcpUrl}</p>
+              {me.assistants.map((a) => (
+                <div class="line"><span class="grow">{a.name}<br /><span class="muted small">Connecté depuis le {new Date(a.since).toLocaleDateString("fr-FR")}</span></span>
+                  <button class="link danger" onClick={async () => { await api(`/api/assistants/${a.client_id}`, { method: "DELETE" }); onChange(); }}>Déconnecter</button></div>
+              ))}
             </div>
           </section>
           <button class="btn2 danger-text" onClick={logout}>Se déconnecter</button>

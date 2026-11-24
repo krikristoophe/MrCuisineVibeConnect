@@ -23,12 +23,12 @@ export interface RecipeJson {
 }
 
 export interface RecipeSummary {
-  id: string; title: string; image: string | null; totalMinutes: number; rating: number; ratingCount: number; category: string; usesRobot: boolean;
+  id: string; title: string; image: string | null; totalMinutes: number; rating: number; ratingCount: number; category: string; usesRobot: boolean; devices: string[];
 }
 
-const SUMMARY_COLS = "id, title, image, total_minutes, rating, rating_count, category, uses_robot";
-export function summary(r: { id: string; title: string; image: string | null; total_minutes: number; rating: number; rating_count: number; category: string; uses_robot: number }): RecipeSummary {
-  return { id: r.id, title: r.title, image: r.image, totalMinutes: r.total_minutes, rating: r.rating, ratingCount: r.rating_count, category: r.category, usesRobot: !!r.uses_robot };
+const SUMMARY_COLS = "id, title, image, total_minutes, rating, rating_count, category, uses_robot, devices";
+export function summary(r: { id: string; title: string; image: string | null; total_minutes: number; rating: number; rating_count: number; category: string; uses_robot: number; devices: string }): RecipeSummary {
+  return { id: r.id, title: r.title, image: r.image, totalMinutes: r.total_minutes, rating: r.rating, ratingCount: r.rating_count, category: r.category, usesRobot: !!r.uses_robot, devices: r.devices ? r.devices.split(",") : [] };
 }
 
 export function searchText(r: RecipeJson): string {
@@ -76,7 +76,8 @@ export async function searchRecipes(env: Env, opts: { q?: string; filter?: strin
     args.push(`%${w}%`);
   }
   if (opts.filter === "robot") where.push("uses_robot = 1");
-  if (opts.filter === "sans") where.push("uses_robot = 0");
+  if (opts.filter === "sans") where.push("devices = '' AND uses_robot = 0");
+  if (opts.filter === "autre") where.push("devices != '' AND uses_robot = 0");
   if (opts.filter === "rapide") where.push("total_minutes > 0 AND total_minutes <= 30");
   if (opts.category) { where.push("category = ?"); args.push(opts.category); }
   const order = opts.q ? "CASE WHEN search LIKE ? THEN 0 ELSE 1 END, rating_count DESC" : "rating_count DESC";
@@ -110,7 +111,7 @@ recipesApi.get("/:id", async (c) => {
   const hh = c.get("user").household_id;
   const fav = await c.env.DB.prepare("SELECT 1 FROM favorites WHERE household_id = ? AND recipe_id = ?").bind(hh, r.id).first();
   const cooked = await c.env.DB.prepare("SELECT count, last_at FROM cooked WHERE household_id = ? AND recipe_id = ?").bind(hh, r.id).first<{ count: number; last_at: number }>();
-  return c.json({ recipe: r, favorite: !!fav, usesRobot: usesRobot(r), cooked: cooked ?? null });
+  return c.json({ recipe: r, favorite: !!fav, usesRobot: usesRobot(r), devices: devices(r), cooked: cooked ?? null });
 });
 
 recipesApi.post("/", async (c) => {
@@ -153,7 +154,7 @@ favoritesApi.get("/", async (c) => {
   const sort = c.req.query("sort") ?? "most";
   const order = sort === "az" ? "r.title COLLATE NOCASE" : sort === "oldest" ? "COALESCE(k.last_at, 0) ASC" : "COALESCE(k.count, 0) DESC, r.title";
   const rows = await c.env.DB.prepare(
-    `SELECT r.id, r.title, r.image, r.total_minutes, r.rating, r.rating_count, r.category, r.uses_robot, k.count AS cooked, k.last_at
+    `SELECT r.id, r.title, r.image, r.total_minutes, r.rating, r.rating_count, r.category, r.uses_robot, r.devices, k.count AS cooked, k.last_at
      FROM favorites f JOIN recipes r ON r.id = f.recipe_id AND r.deleted = 0
      LEFT JOIN cooked k ON k.household_id = f.household_id AND k.recipe_id = f.recipe_id
      WHERE f.household_id = ? ORDER BY ${order}`

@@ -1,6 +1,7 @@
 :root{--bg:#F3F5F8;--surface:#FFFFFF;--surface2:#EBEEF3;--surface3:#DEE3EB;--stroke:#C5CDD9;--text:#1A2332;--text2:#5A6578;--accent:#FF8A3D;--accent-soft:#FFE6D5;--accent-pale:#FFF4EC;--accent-text:#C2560F;--on-accent:#1E1007;--link:#B4530E;--ok:#1F7A4D;--ok-dot:#2EA66A;--danger:#B42318;--radius:22px;
   font-family:Roboto,system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--text);background:var(--bg);-webkit-tap-highlight-color:transparent}
 *{box-sizing:border-box}
+html,body{touch-action:manipulation;-webkit-text-size-adjust:100%}
 body{margin:0;min-height:100vh;-webkit-font-smoothing:antialiased}
 body.noscroll{overflow:hidden}
 a{color:var(--link)}
@@ -88,9 +89,11 @@ input.inline.time{width:auto}
 .nav-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 0;font-size:12px;font-weight:500;color:var(--text2);text-decoration:none}
 .nav-item.on{color:var(--accent-text)}
 .content{padding-bottom:84px}
-.page{padding:24px 20px 32px;display:flex;flex-direction:column;gap:18px;max-width:1240px;margin:0 auto}
+.page{--px:20px;--pt:24px;padding:var(--pt) var(--px) 32px;display:flex;flex-direction:column;gap:18px;max-width:1240px;margin:0 auto}
 .narrow{max-width:640px}
 .head{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap}
+.head,.topbar{position:sticky;top:0;z-index:15;background:var(--bg);margin:calc(-1 * var(--pt)) calc(-1 * var(--px)) 0;padding:calc(var(--pt) + env(safe-area-inset-top)) var(--px) 12px}
+.topbar+.head{position:static;margin:0;padding:0}
 .head-avatar{text-decoration:none}
 
 @media (min-width:768px){
@@ -100,7 +103,8 @@ input.inline.time{width:auto}
   .nav-me{display:block;margin-top:auto;text-decoration:none;color:var(--text)}
   .nav-me-text{display:none}
   .content{padding:0 0 0 96px}
-  .page{padding:28px 30px 40px 12px}
+  .page{--px:30px;--pt:28px;padding:var(--pt) 30px 40px 12px}
+  .head,.topbar{margin-left:-12px;padding-left:12px}
   .head-avatar{display:none}
   .chips{margin:0;padding:0;flex-wrap:wrap}
   #toast{bottom:30px}
@@ -114,7 +118,8 @@ input.inline.time{width:auto}
   .nav-me-text{display:flex;flex-direction:column;font-size:13px;color:var(--text2)}
   .nav-me-text b{font-size:15px;color:var(--text);font-weight:500}
   .content{padding-left:250px}
-  .page{padding:32px 40px 48px}
+  .page{--px:40px;--pt:32px;padding:var(--pt) var(--px) 48px}
+  .head,.topbar{margin-left:calc(-1 * var(--px));padding-left:var(--px)}
 }
 
 /* Connexion */

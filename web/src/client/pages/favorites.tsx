@@ -1,6 +1,6 @@
 import { useState } from "preact/hooks";
 import type { Me } from "../app";
-import { Icon, Img, ago, minutes, useApi, type RecipeSummary } from "../ui";
+import { Icon, Img, ago, minutes, robotLabel, useApi, type RecipeSummary } from "../ui";
 import { SlotPicker } from "../pickers";
 
 type Fav = RecipeSummary & { cooked: number; lastCooked: number | null };
@@ -20,7 +20,7 @@ export function Favorites({ me: _me }: { me: Me }) {
           <div class="panel fav">
             <a class="fav-link" href={`/recettes/${encodeURIComponent(f.id)}`}>
               <Img src={f.image} class="fav-img" />
-              <span><b>{f.title}</b><span class="muted small">{f.cooked ? `Cuisinée ${f.cooked} fois · ${ago(f.lastCooked)}` : "Jamais cuisinée"}{f.totalMinutes ? ` · ${minutes(f.totalMinutes)}` : ""}{f.usesRobot ? "" : " · sans robot"}</span></span>
+              <span><b>{f.title}</b><span class="muted small">{f.cooked ? `Cuisinée ${f.cooked} fois · ${ago(f.lastCooked)}` : "Jamais cuisinée"}{f.totalMinutes ? ` · ${minutes(f.totalMinutes)}` : ""}{f.usesRobot ? "" : ` · ${robotLabel(f).toLowerCase()}`}</span></span>
             </a>
             <button class="round accent" aria-label={`Planifier ${f.title}`} onClick={() => setPlan(f)}><Icon.plan /></button>
           </div>
