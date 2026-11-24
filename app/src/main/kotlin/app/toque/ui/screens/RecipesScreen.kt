@@ -255,8 +255,11 @@ class RecipesScreen(
         unsub?.invoke()
     }
 
+    private val knob by lazy { app.toque.ui.KnobScroll(grid, Ui.u(130)) { grid.scrollListBy(it) } }
+
+    /** La molette fait défiler la grille en douceur, même en tournant vite (voir KnobScroll). */
     override fun onKnob(delta: Int): Boolean {
-        grid.smoothScrollBy(delta * Ui.u(240), 150)
+        knob.nudge(delta)
         return true
     }
 

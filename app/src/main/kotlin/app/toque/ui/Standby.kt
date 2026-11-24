@@ -110,16 +110,16 @@ class Standby(private val a: MainActivity, private val root: FrameLayout) {
         v.setBackgroundColor(0xFF000000.toInt())
         v.isClickable = true
         // Luminosité normale de l'écran en veille (avant : 2 %, l'heure ne se voyait plus) : heure
-        // claire sur fond noir, à la même place et à la même taille que sur l'accueil (barre du
-        // haut de 70, marges de l'accueil, ligne « Bonjour » gardée vide pour l'alignement).
+        // claire sur fond noir, à la même place et à la même taille que sur l'accueil (menu latéral
+        // de 80, marges de l'accueil, ligne « Bonjour » gardée vide pour l'alignement).
         val b = Ui.vertical(a, Gravity.START)
-        b.setPadding(Ui.u(80 + 28), Ui.u(10), 0, 0)   // menu latéral de 80, marges de l'accueil
-        b.addView(Ui.text(a, " ", 24f, 0, Ui.LIGHT), Ui.lp(Ui.WRAP, Ui.WRAP, t = 8))
-        val t = Ui.text(a, "", 132f, 0xFFE6E9EE.toInt(), Ui.THIN)
-        b.addView(t, Ui.lp(Ui.WRAP, Ui.WRAP, t = 2))
+        b.setPadding(Ui.u(80 + 18 + 4), Ui.u(22), 0, 0)
+        b.addView(Ui.text(a, " ", 22f, 0, Ui.LIGHT), Ui.lp(Ui.WRAP, Ui.WRAP))
+        val t = Ui.text(a, "", 78f, 0xFFE6E9EE.toInt(), Ui.THIN)
+        b.addView(t, Ui.lp(Ui.WRAP, Ui.WRAP))
         // La date sous l'heure, comme sur l'accueil.
-        val d = Ui.text(a, "", 22f, 0xFFB4BCC8.toInt(), Ui.LIGHT)
-        b.addView(d, Ui.lp(Ui.WRAP, Ui.WRAP, t = 2))
+        val d = Ui.text(a, "", 18f, 0xFFB4BCC8.toInt(), Ui.LIGHT)
+        b.addView(d, Ui.lp(Ui.WRAP, Ui.WRAP))
         val h = Ui.text(a, "", 22f, Ui.WARN, Ui.MEDIUM)
         b.addView(h, Ui.lp(Ui.WRAP, Ui.WRAP, t = 6))
         b.addView(Ui.text(a, tr("Touchez l'écran pour reprendre"), 17f, 0xFF8B95A8.toInt()), Ui.lp(Ui.WRAP, Ui.WRAP, t = 18))

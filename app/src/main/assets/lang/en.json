@@ -343,7 +343,6 @@
   "Rechercher une recette…": "Search for a recipe…",
   "Relâchez pour arrêter": "Release to stop",
   "Reprendre": "Resume",
-  "Reprendre « %s » — étape %d": "Resume “%s” — step %d",
   "Reprise de la main sur le robot…": "Taking back control of the robot…",
   "Reprise…": "Resuming…",
   "Rester": "Stay",
@@ -648,6 +647,7 @@
   "Retour": "Back",
   "Accueil": "Home",
   "Plus": "More",
-  "Tous les favoris (%d)": "All favorites (%d)",
-  "Cuisson": "Cooking"
+  "Cuisson": "Cooking",
+  "Cuisinées récemment": "Recently cooked",
+  "Étape %d sur %d": "Step %d of %d"
 }
