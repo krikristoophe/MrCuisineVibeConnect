@@ -82,6 +82,9 @@ class MainActivity : Activity() {
 
         root = FrameLayout(this)
         root.background = Ui.background()
+        // Peut prendre le focus : un champ de texte quitté (clavier fermé) le lui rend, sinon le
+        // champ le garde et le bouton du robot n'arrive plus aux écrans.
+        root.isFocusableInTouchMode = true
         val column = Ui.vertical(this)
         topBar = TopBar(this)
         column.addView(topBar, Ui.lp(Ui.MATCH, Ui.u(70)))   // 60 + marge du haut
@@ -393,6 +396,14 @@ class MainActivity : Activity() {
             if (event.actionMasked == MotionEvent.ACTION_UP || event.actionMasked == MotionEvent.ACTION_CANCEL) swallowTouch = false
             return true
         }
+        // Le robot n'a pas de touche Retour pour fermer le clavier : toucher en dehors du champ en
+        // cours (et de sa case, avec la croix d'effacement) le ferme et quitte le champ.
+        if (event.actionMasked == MotionEvent.ACTION_DOWN) (currentFocus as? android.widget.EditText)?.let { field ->
+            val box = (field.parent as? View) ?: field
+            val r = android.graphics.Rect()
+            box.getGlobalVisibleRect(r)
+            if (!r.contains(event.rawX.toInt(), event.rawY.toInt())) hideKeyboard()
+        }
         return super.dispatchTouchEvent(event)
     }
 
@@ -419,7 +430,10 @@ class MainActivity : Activity() {
             }
             val s = current
             if ((left || right || press) && !prefs.knobSetupDone) prefs.knobSetupDone = true
-            if (s != null && currentFocus !is android.widget.EditText) {
+            // Tourner ou appuyer sur le bouton quitte le champ de texte en cours (clavier fermé) : le
+            // bouton sert à faire défiler, pas à déplacer le curseur.
+            if ((left || right || press) && currentFocus is android.widget.EditText) hideKeyboard()
+            if (s != null) {
                 if (left && s.onKnob(-1)) return true
                 if (right && s.onKnob(1)) return true
                 if (press && s.onKnobPress()) return true
@@ -599,9 +613,16 @@ class MainActivity : Activity() {
         immersive()
     }
 
+    /** Ferme le clavier et quitte le champ de texte : le focus revient à la racine. */
     fun hideKeyboard() {
         val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
-        currentFocus?.let { imm.hideSoftInputFromWindow(it.windowToken, 0) }
+        currentFocus?.let {
+            imm.hideSoftInputFromWindow(it.windowToken, 0)
+            if (it is android.widget.EditText) {
+                it.clearFocus()
+                root.requestFocus()
+            }
+        }
     }
 
     // ------------------------------------------------------------------ appli d'origine

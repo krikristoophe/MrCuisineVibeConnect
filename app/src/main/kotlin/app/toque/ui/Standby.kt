@@ -10,8 +10,11 @@ import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
 import app.toque.TimeSync
+import app.toque.core.i18n.I18n
 import app.toque.core.i18n.tr
 import app.toque.core.machine.Snapshot
+import java.text.SimpleDateFormat
+import java.util.Date
 
 /**
  * Mise en veille, comme l'appli d'origine : après quelques minutes sans geste et sans programme
@@ -27,6 +30,7 @@ class Standby(private val a: MainActivity, private val root: FrameLayout) {
     private var view: FrameLayout? = null
     private var box: LinearLayout? = null
     private var clock: TextView? = null
+    private var date: TextView? = null
     private var hot: TextView? = null
     private var running = false
     private var wokeMs = 0L
@@ -113,6 +117,9 @@ class Standby(private val a: MainActivity, private val root: FrameLayout) {
         b.addView(Ui.text(a, " ", 24f, 0, Ui.LIGHT), Ui.lp(Ui.WRAP, Ui.WRAP, t = 8))
         val t = Ui.text(a, "", 132f, 0xFFE6E9EE.toInt(), Ui.THIN)
         b.addView(t, Ui.lp(Ui.WRAP, Ui.WRAP, t = 2))
+        // La date sous l'heure, comme sur l'accueil.
+        val d = Ui.text(a, "", 22f, 0xFFB4BCC8.toInt(), Ui.LIGHT)
+        b.addView(d, Ui.lp(Ui.WRAP, Ui.WRAP, t = 2))
         val h = Ui.text(a, "", 22f, Ui.WARN, Ui.MEDIUM)
         b.addView(h, Ui.lp(Ui.WRAP, Ui.WRAP, t = 6))
         b.addView(Ui.text(a, tr("Touchez l'écran pour reprendre"), 17f, 0xFF8B95A8.toInt()), Ui.lp(Ui.WRAP, Ui.WRAP, t = 18))
@@ -121,6 +128,7 @@ class Standby(private val a: MainActivity, private val root: FrameLayout) {
         view = v
         box = b
         clock = t
+        date = d
         hot = h
         refresh()
         v.alpha = 0f
@@ -140,6 +148,7 @@ class Standby(private val a: MainActivity, private val root: FrameLayout) {
         view = null
         box = null
         clock = null
+        date = null
         hot = null
         brightness(WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE)
         KnobLight.stop()
@@ -147,7 +156,9 @@ class Standby(private val a: MainActivity, private val root: FrameLayout) {
     }
 
     private fun refresh() {
-        clock?.text = if (TimeSync.showClock(a)) MainActivity.now() else ""
+        val show = TimeSync.showClock(a)
+        clock?.text = if (show) MainActivity.now() else ""
+        date?.text = if (show) SimpleDateFormat(tr("EEEE d MMMM"), I18n.locale).format(Date()).replaceFirstChar { it.uppercaseChar() } else ""
         val temp = a.snapshot.actualTempC
         hot?.let {
             it.text = if (temp >= 50) tr("Bol chaud : %d °C", temp) else ""

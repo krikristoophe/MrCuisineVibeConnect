@@ -73,7 +73,6 @@
   "Aucune recette lisible dans les fichiers de Download": "No readable recipe in the Download files",
   "Aucune recette lisible. Envoyez le fichier diagnostic-recettes.txt.": "No readable recipe. Send the file diagnostic-recettes.txt.",
   "Aucune recette ne correspond.\nAstuce : séparez plusieurs ingrédients par des virgules.": "No matching recipe.\nTip: separate several ingredients with commas.",
-  "Aucune recette perso pour l'instant.\nTouchez « Nouvelle recette », ou le crayon d'une recette Lidl pour en faire votre version.": "No recipes of your own yet.\nTap “New recipe”, or the pencil on a Lidl recipe to make your own version.",
   "Aucune recette perso à exporter": "No recipes of your own to export",
   "Aucune recette reçue du serveur": "No recipes received from the server",
   "Aucune version publiée sur GitHub pour l'instant": "No version published on GitHub yet",
@@ -688,5 +687,6 @@
   "Bol retiré": "Bowl removed",
   "Octets 12-13": "Bytes 12-13",
   "(rôle inconnu)": "(unknown role)",
-  "Écran et langue": "Display and language"
+  "Écran et langue": "Display and language",
+  "Aucune recette perso pour l'instant.\nTouchez le crayon d'une recette Lidl pour en faire votre version.": "No personal recipe yet.\nTap the pencil on a Lidl recipe to make your own version."
 }

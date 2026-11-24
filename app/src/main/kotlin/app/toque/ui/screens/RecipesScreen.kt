@@ -25,7 +25,6 @@ import app.toque.core.i18n.tr
 import app.toque.core.recipes.RecipeFilter
 import app.toque.core.recipes.RecipeSource
 import app.toque.core.recipes.SearchIndex
-import app.toque.core.recipes.UserRecipes
 import app.toque.ui.Icon
 import app.toque.ui.ImageLoader
 import app.toque.ui.MainActivity
@@ -112,10 +111,6 @@ class RecipesScreen(
             refreshBtn = Ui.button(c, tr("Actualiser"), Ui.Style.SECONDARY, Icon.Kind.SYNC, height = 64, textSize = 18f) { refreshFavorites() }
                 .also { bar.addView(it, Ui.lp(Ui.WRAP, Ui.WRAP, l = 16)) }
         }
-        bar.addView(Ui.button(c, tr("Nouvelle recette"), Ui.Style.SECONDARY, Icon.Kind.PLUS, height = 64, textSize = 18f) {
-            a.hideKeyboard()
-            a.push(RecipeEditScreen(a, UserRecipes.blank(), isNew = true))
-        }, Ui.lp(Ui.WRAP, Ui.WRAP, l = 16))
         root.addView(bar)
 
         val scroller = HorizontalScrollView(c).apply { isHorizontalScrollBarEnabled = false; overScrollMode = View.OVER_SCROLL_NEVER }
@@ -215,7 +210,7 @@ class RecipesScreen(
             filter.source == RecipeSource.COMMUNITY && query.isBlank() ->
                 tr("Aucune recette de la communauté pour l'instant.\nRéglages › Recettes de la communauté › Synchroniser.")
             filter.source == RecipeSource.USER && query.isBlank() ->
-                tr("Aucune recette perso pour l'instant.\nTouchez « Nouvelle recette », ou le crayon d'une recette Lidl pour en faire votre version.")
+                tr("Aucune recette perso pour l'instant.\nTouchez le crayon d'une recette Lidl pour en faire votre version.")
             else -> tr("Aucune recette ne correspond.\nAstuce : séparez plusieurs ingrédients par des virgules.")
         }
     }
