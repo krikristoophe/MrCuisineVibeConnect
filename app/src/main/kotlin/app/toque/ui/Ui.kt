@@ -145,6 +145,13 @@ object Ui {
             ellipsize = TextUtils.TruncateAt.END
         }
 
+    /** Durée en minutes, lisible : « 45 min », « 1h », « 1h40 ». */
+    fun minutes(minutes: Int): String = when {
+        minutes < 60 -> "$minutes min"
+        minutes % 60 == 0 -> "${minutes / 60}h"
+        else -> "${minutes / 60}h" + (minutes % 60).toString().padStart(2, '0')
+    }
+
     fun ellipsize(t: TextView, lines: Int = 1): TextView {
         t.maxLines = lines
         t.ellipsize = TextUtils.TruncateAt.END

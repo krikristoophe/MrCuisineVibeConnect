@@ -368,6 +368,8 @@ class MainActivity : Activity() {
         val v = s.view
         (v.parent as? FrameLayout)?.removeView(v)
         content.addView(v, Ui.flp())
+        // Un écran qui revient ne rend pas la main à son champ de texte (le clavier se rouvrait).
+        root.requestFocus()
         topBar.setTitle(s.title, stack.size > 1)
         s.onShow()
         s.onSnapshot(snapshot)

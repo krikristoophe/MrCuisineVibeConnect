@@ -234,11 +234,16 @@ class RecipesScreen(
         }
     }
 
+    private var searchFocused = false
+
     override fun onShow() {
         buildChips()
         search()
         unsub = a.app.recipes.onChange { buildChips(); search() }
-        if (focusSearch) view.postDelayed({
+        // Clavier ouvert d'office seulement à la première ouverture (recherche lancée de l'accueil),
+        // pas en revenant d'une recette.
+        if (focusSearch && !searchFocused) view.postDelayed({
+            searchFocused = true
             input.requestFocus()
             (c.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager).showSoftInput(input, InputMethodManager.SHOW_IMPLICIT)
         }, 150)
@@ -326,7 +331,7 @@ class RecipesScreen(
             if (u != null && usage == Usage.MOST) parts += if (u.count == 1) tr("1 fois") else tr("%d fois", u.count)
             if (u != null && usage == Usage.RECENT) parts += ago(u.lastMs)
             if (e.ratingCount > 0) parts += "★ " + String.format(I18n.locale, "%.1f", e.rating)
-            if (e.totalMinutes > 0) parts += "${e.totalMinutes} min"
+            if (e.totalMinutes > 0) parts += Ui.minutes(e.totalMinutes)
             if (e.category.isNotBlank()) parts += e.category
             meta.text = parts.joinToString(" · ")
             star.visibility = if (a.app.recipes.isFavorite(e.id)) View.VISIBLE else View.GONE

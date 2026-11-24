@@ -43,7 +43,10 @@ class RecipeScreen(a: MainActivity, val recipe: Recipe) : Screen(a) {
     override val title = recipe.title
     private lateinit var favIcon: Icon
     private lateinit var favLabel: TextView
-    private var adjustments = a.app.recipes.adjustmentsOf(recipe.id)
+    // Ce fork n'adapte plus les recettes (portions, quantités) : elles s'affichent et se cuisinent
+    // telles que publiées, même si des corrections avaient été enregistrées avant.
+    // À venir : des recettes données directement pour chaque nombre de personnes.
+    private var adjustments = RecipeAdjustments()
     /** La recette telle qu'elle est affichée et cuisinée : celle de la source + les corrections + le nombre de personnes. */
     private var shown = recipe.adjusted(adjustments)
     /** Les corrections seules, au nombre de personnes de la recette : c'est là qu'elles s'enregistrent. */
@@ -57,7 +60,6 @@ class RecipeScreen(a: MainActivity, val recipe: Recipe) : Screen(a) {
     private var showSteps = false
     private val tabsRow by lazy { Ui.horizontal(c) }
     private val stepsBox by lazy { Ui.vertical(c) }
-    private val stepperBox by lazy { Ui.horizontal(c) }
     private lateinit var tabScroll: android.widget.ScrollView
 
     override fun build(): View {
@@ -80,30 +82,23 @@ class RecipeScreen(a: MainActivity, val recipe: Recipe) : Screen(a) {
         left.addView(header, LinearLayout.LayoutParams(Ui.MATCH, Ui.u(230)))
 
         val meta = Ui.horizontal(c)
-        if (recipe.totalMinutes > 0) meta.addView(Ui.chip(c, "${recipe.totalMinutes} min", Icon.Kind.CLOCK), Ui.lp(Ui.WRAP, Ui.WRAP, r = 8))
-        if (recipe.ratingCount > 0) meta.addView(Ui.chip(c, rating(recipe.rating), Icon.Kind.STAR), Ui.lp(Ui.WRAP, Ui.WRAP, r = 8))
-        meta.addView(View(c), LinearLayout.LayoutParams(0, 1, 1f))
-        if (recipe.servings > 0) meta.addView(stepperBox, Ui.lp(Ui.WRAP, Ui.WRAP))
+        if (recipe.totalMinutes > 0) meta.addView(Ui.chip(c, Ui.minutes(recipe.totalMinutes), Icon.Kind.CLOCK), Ui.lp(Ui.WRAP, Ui.WRAP, r = 8))
+        if (recipe.servings > 0) meta.addView(Ui.chip(c, people(recipe.servings), Icon.Kind.PEOPLE), Ui.lp(Ui.WRAP, Ui.WRAP, r = 8))
+        if (recipe.ratingCount > 0) meta.addView(Ui.chip(c, rating(recipe.rating), Icon.Kind.STAR_FILLED), Ui.lp(Ui.WRAP, Ui.WRAP, r = 8))
         left.addView(meta, Ui.lp(t = 12))
 
-        // Catégorie et tags de la recette (pas de description dans les recettes Lidl).
-        val tags = (listOf(recipe.category) + recipe.tags).map { it.trim() }.filter { it.isNotEmpty() }.distinct()
+        // Catégorie et tags de la recette (pas de description dans les recettes Lidl). « Mon Robot & Moi »
+        // (le nom d'un magazine Lidl) n'apprend rien sur la recette : écarté.
+        val tags = (listOf(recipe.category) + recipe.tags).map { it.trim() }
+            .filter { it.isNotEmpty() && !it.equals("Mon Robot & Moi", ignoreCase = true) }.distinct()
         if (tags.isNotEmpty()) {
             left.addView(Ui.text(c, tr("Catégorie et tags").uppercase(I18n.locale), 14f, Ui.TEXT2, Ui.MEDIUM).apply { letterSpacing = 0.08f },
                 Ui.lp(t = 16))
-            val row = Ui.horizontal(c)
-            for ((k, t) in tags.withIndex()) {
-                val first = k == 0 && recipe.category.isNotBlank()
-                row.addView(Ui.chip(c, t, color = if (first) Ui.TEXT else Ui.TEXT2, bg = if (first) Ui.ACCENT_DIM else Ui.SURFACE),
-                    Ui.lp(Ui.WRAP, Ui.WRAP, r = 8))
-            }
-            val scroller = android.widget.HorizontalScrollView(c).apply { isHorizontalScrollBarEnabled = false; overScrollMode = View.OVER_SCROLL_NEVER }
-            scroller.addView(row)
-            left.addView(scroller, Ui.lp(t = 8))
+            left.addView(tagRows(tags, recipe.category.isNotBlank() && tags.first() == recipe.category.trim(), Ui.u(400)), Ui.lp(t = 8))
         }
         val times = when {
-            recipe.prepMinutes > 0 && recipe.totalMinutes > 0 -> tr("Préparation %d min · %d min au total", recipe.prepMinutes, recipe.totalMinutes)
-            recipe.totalMinutes > 0 -> tr("%d min au total", recipe.totalMinutes)
+            recipe.prepMinutes > 0 && recipe.totalMinutes > 0 -> tr("Préparation %s · %s au total", Ui.minutes(recipe.prepMinutes), Ui.minutes(recipe.totalMinutes))
+            recipe.totalMinutes > 0 -> tr("%s au total", Ui.minutes(recipe.totalMinutes))
             else -> ""
         }
         if (times.isNotEmpty()) left.addView(Ui.text(c, times, 16f, Ui.TEXT2), Ui.lp(t = 10))
@@ -140,6 +135,32 @@ class RecipeScreen(a: MainActivity, val recipe: Recipe) : Screen(a) {
         return root
     }
 
+    /**
+     * Pastilles de tags sur deux lignes au plus : la première se remplit jusqu'à [width], la seconde
+     * prend le reste ; si elle déborde, les deux lignes défilent ensemble à l'horizontale.
+     */
+    private fun tagRows(tags: List<String>, firstIsCategory: Boolean, width: Int): View {
+        val rows = Ui.vertical(c)
+        val one = Ui.horizontal(c)
+        val two = Ui.horizontal(c)
+        var used = 0
+        val gap = Ui.u(8)
+        for ((k, t) in tags.withIndex()) {
+            val first = k == 0 && firstIsCategory
+            val chip = Ui.chip(c, t, color = if (first) Ui.TEXT else Ui.TEXT2, bg = if (first) Ui.ACCENT_DIM else Ui.SURFACE)
+            chip.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED)
+            val w = chip.measuredWidth + gap
+            if (two.childCount == 0 && used + w <= width + gap) {
+                one.addView(chip, Ui.lp(Ui.WRAP, Ui.WRAP, r = 8)); used += w
+            } else two.addView(chip, Ui.lp(Ui.WRAP, Ui.WRAP, r = 8))
+        }
+        rows.addView(one)
+        if (two.childCount > 0) rows.addView(two, Ui.lp(Ui.WRAP, Ui.WRAP, t = 8))
+        val scroller = android.widget.HorizontalScrollView(c).apply { isHorizontalScrollBarEnabled = false; overScrollMode = View.OVER_SCROLL_NEVER }
+        scroller.addView(rows)
+        return scroller
+    }
+
     private fun showTab(steps: Boolean) {
         showSteps = steps
         tabsRow.removeAllViews()
@@ -161,12 +182,6 @@ class RecipeScreen(a: MainActivity, val recipe: Recipe) : Screen(a) {
     private fun renderIngredients() {
         val ing = ingredientsBox
         ing.removeAllViews()
-        stepperBox.removeAllViews()
-        if (recipe.servings > 0) stepperBox.addView(servingsStepper())
-        if (recipe.servings > 0 && shown.servings != recipe.servings) ing.addView(servingsNotice(), Ui.lp(t = 4, b = 8))
-        if (shown.allIngredients.any { it.qty.isNotBlank() } || shown.steps.any { it.weigh != null }) {
-            ing.addView(Ui.text(c, tr("Touchez une quantité pour l'adapter : les étapes suivent."), 14f, Ui.TEXT3), Ui.lp(b = 4))
-        }
         var index = 0
         for (g in shown.ingredients) {
             if (g.title.isNotBlank()) ing.addView(Ui.text(c, g.title, 17f, Ui.ACCENT, Ui.MEDIUM), Ui.lp(t = 12, b = 2))
@@ -174,7 +189,7 @@ class RecipeScreen(a: MainActivity, val recipe: Recipe) : Screen(a) {
                 val k = index++
                 val original = if (i.originalQty.isNotBlank()) quantity(i.originalQty, i.unit) else null
                 val label = if (i.note.isNotBlank()) "${i.name.trim()}, ${i.note.trim()}" else i.name.trim()
-                ing.addView(ingredientRow(label, quantity(i.qty, i.unit), original, if (i.qty.isNotBlank()) ({ editQuantity(i, k) }) else null))
+                ing.addView(ingredientRow(label, quantity(i.qty, i.unit), original, null))
             }
         }
         if (shown.ingredients.isEmpty()) ing.addView(Ui.text(c, tr("Pas de liste d'ingrédients."), 17f, Ui.TEXT3), Ui.lp(t = 8))
@@ -184,7 +199,7 @@ class RecipeScreen(a: MainActivity, val recipe: Recipe) : Screen(a) {
             ing.addView(Ui.text(c, tr("Aussi dans les étapes"), 17f, Ui.ACCENT, Ui.MEDIUM), Ui.lp(t = 14, b = 2))
             for ((si, name, w) in unlisted) {
                 val original = if (w.originalGrams > 0) "${w.originalGrams} g" else null
-                ing.addView(ingredientRow(name, "${w.grams} g", original) { editWeigh(si, name, w) })
+                ing.addView(ingredientRow(name, "${w.grams} g", original, null))
             }
         }
     }

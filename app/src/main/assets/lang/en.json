@@ -690,6 +690,6 @@
   "Écran et langue": "Display and language",
   "Aucune recette perso pour l'instant.\nTouchez le crayon d'une recette Lidl pour en faire votre version.": "No personal recipe yet.\nTap the pencil on a Lidl recipe to make your own version.",
   "Catégorie et tags": "Category and tags",
-  "Préparation %d min · %d min au total": "Preparation %d min · %d min in total",
-  "%d min au total": "%d min in total"
+  "Préparation %s · %s au total": "Preparation %s · %s in total",
+  "%s au total": "%s in total"
 }
