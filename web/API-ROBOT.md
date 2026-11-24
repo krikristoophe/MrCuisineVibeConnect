@@ -56,6 +56,6 @@ La base de recettes Claudimix (commune, modifiable dans l'appli ou par IA) rempl
 Lidl. Même format JSON que la base locale du robot (`Recipe` de `android/core`).
 
 `GET /api/robot/recipes?since=<ms>&limit=200` →
-`{ "recipes": [ {…recette…} ], "deleted": ["id", …], "next": <ms> | null, "until": <ms> }`.
-Tant que `next` n'est pas `null`, rappeler avec `since=next`. Garder `until` comme prochain `since`.
+`{ "recipes": [ {…recette…} ], "deleted": ["id", …], "next": <ms> | null, "nextAfter": "id" | null, "until": <ms> }`.
+Tant que `next` n'est pas `null`, rappeler avec `since=next&after=nextAfter` (`after` départage les recettes de même date ; les dates sont normalement toutes distinctes). Garder `until` comme prochain `since`.
 Synchro au démarrage puis toutes les heures.

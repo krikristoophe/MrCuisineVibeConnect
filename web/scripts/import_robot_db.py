@@ -44,7 +44,7 @@ with open(out, "w", encoding="utf-8") as f:
         uses = 1 if any(s.get("machine") for s in r.get("steps", [])) and (not devices or "MC2.0" in devices) else 0
         r.pop("favorite", None)
         vals = [r["id"], r["title"], search, r.get("category", ""), r.get("image"), int(r.get("totalMinutes") or 0),
-                float(r.get("rating") or 0), int(r.get("ratingCount") or 0), uses, ",".join(devices), json.dumps(r, ensure_ascii=False), now]
+                float(r.get("rating") or 0), int(r.get("ratingCount") or 0), uses, ",".join(devices), json.dumps(r, ensure_ascii=False), now + n]  # dates distinctes : curseur de synchro du robot
         f.write("INSERT OR IGNORE INTO recipes (id, title, search, category, image, total_minutes, rating, rating_count, uses_robot, devices, json, updated_at) VALUES ("
                 + ", ".join(q(v) for v in vals) + ");\n")
         n += 1

@@ -126,17 +126,19 @@ robotApi.get("/recipes", async (c) => {
   const robot = await robotFromToken(c);
   if (!robot) return c.json({ error: "robot inconnu" }, 401);
   const since = Number(c.req.query("since") ?? 0);
+  const after = c.req.query("after") ?? ""; // id de la dernière recette reçue à la date `since`
   const limit = Math.min(Number(c.req.query("limit") ?? 200), 500);
   // Seulement les recettes faisables sur ce robot (Connect) ; les autres comptent comme supprimées.
   const device = c.req.query("device") ?? OUR_DEVICE;
-  const rows = await c.env.DB.prepare("SELECT id, json, updated_at, deleted, devices FROM recipes WHERE updated_at > ? ORDER BY updated_at, id LIMIT ?")
-    .bind(since, limit).all<{ id: string; json: string; updated_at: number; deleted: number; devices: string }>();
+  const rows = await c.env.DB.prepare("SELECT id, json, updated_at, deleted, devices FROM recipes WHERE updated_at > ? OR (updated_at = ? AND id > ?) ORDER BY updated_at, id LIMIT ?")
+    .bind(since, since, after, limit).all<{ id: string; json: string; updated_at: number; deleted: number; devices: string }>();
   const list = rows.results;
   const ok = (r: { deleted: number; devices: string }) => !r.deleted && (r.devices === "" || r.devices.split(",").includes(device));
   return c.json({
     recipes: list.filter(ok).map((r) => JSON.parse(r.json)),
     deleted: list.filter((r) => !ok(r)).map((r) => r.id),
     next: list.length === limit ? list[list.length - 1].updated_at : null,
+    nextAfter: list.length === limit ? list[list.length - 1].id : null,
     until: list.length ? list[list.length - 1].updated_at : since,
   });
 });
