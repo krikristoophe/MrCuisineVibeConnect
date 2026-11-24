@@ -118,6 +118,12 @@ export function RecipePage({ me: _me, id }: { me: Me; id: string }) {
             {r.ratingCount ? <span class="tag big">★ {(r.rating ?? 0).toFixed(1).replace(".", ",")}</span> : null}
             <span class="tag big">{robotLabel(data)}</span>
           </div>
+          {(r.category || r.tags?.length) ? (
+            <div class="tags" aria-label="Catégorie et tags">
+              {r.category && <a class="tag big cat" href={`/recettes?categorie=${encodeURIComponent(r.category)}`}>{r.category}</a>}
+              {(r.tags ?? []).filter((t) => t && t !== r.category && t !== "Mon Robot & Moi").map((t) => <span class="tag big plain">{t}</span>)}
+            </div>
+          ) : null}
           {data.cooked && <p class="muted small">Cuisinée {data.cooked.count} fois par le foyer.</p>}
           {r.notes && <p class="muted">{r.notes}</p>}
           <div class="row wrap">

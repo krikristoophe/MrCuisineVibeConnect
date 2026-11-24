@@ -13,6 +13,19 @@ import json, sqlite3, sys, time, unicodedata
 def fold(s: str) -> str:
     return "".join(c for c in unicodedata.normalize("NFD", s) if unicodedata.category(c) != "Mn").lower()
 
+# Même règle que primary_category.py : la catégorie la plus précise, les autres en tags.
+PRIORITY = ["Aliments pour bébé", "Boissons", "Confitures & gelées", "Petit-déjeuner", "Sauces et dips", "Dessert",
+            "Soupes & potées", "Salades", "Entrées", "Garnitures", "Plats principaux", "Dîner", "Recettes au four", "Snacks"]
+
+def fix_category(r):
+    cat, tags = r.get("category", ""), r.get("tags", [])
+    known = [n for n in ([cat] if cat else []) + tags if n in PRIORITY]
+    if known:
+        best = min(known, key=PRIORITY.index)
+        if best != cat:
+            r["tags"] = [t for t in ([cat] if cat else []) + tags if t != best]
+            r["category"] = best
+
 def q(v):
     if v is None:
         return "NULL"
@@ -38,6 +51,7 @@ with open(out, "w", encoding="utf-8") as f:
         r = json.loads(raw)
         if not r.get("id") or not r.get("title"):
             continue
+        fix_category(r)
         ing = " ".join(i.get("name", "") for g in r.get("ingredients", []) for i in g.get("items", []))
         search = fold(" ".join([r["title"], r.get("category", ""), " ".join(r.get("tags", [])), ing]))
         devices = [d for d in r.get("devices", []) if isinstance(d, str)]
