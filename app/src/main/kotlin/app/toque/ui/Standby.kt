@@ -108,11 +108,13 @@ class Standby(private val a: MainActivity, private val root: FrameLayout) {
         v.setBackgroundColor(0xFF000000.toInt())
         v.isClickable = true
         val b = Ui.vertical(a, Gravity.CENTER_HORIZONTAL)
-        val t = Ui.text(a, "", 150f, 0xFF7C828B.toInt(), Ui.THIN)
+        // Luminosité normale de l'écran en veille (avant : 2 %, l'heure ne se voyait plus) : heure
+        // claire sur fond noir, qui bouge chaque minute pour ne pas marquer l'écran.
+        val t = Ui.text(a, "", 150f, 0xFFE6E9EE.toInt(), Ui.THIN)
         b.addView(t, Ui.lp(Ui.WRAP, Ui.WRAP))
         val h = Ui.text(a, "", 22f, Ui.WARN, Ui.MEDIUM)
         b.addView(h, Ui.lp(Ui.WRAP, Ui.WRAP, t = 6))
-        b.addView(Ui.text(a, tr("Touchez l'écran pour reprendre"), 17f, 0xFF3E434A.toInt()), Ui.lp(Ui.WRAP, Ui.WRAP, t = 18))
+        b.addView(Ui.text(a, tr("Touchez l'écran pour reprendre"), 17f, 0xFF8B95A8.toInt()), Ui.lp(Ui.WRAP, Ui.WRAP, t = 18))
         v.addView(b, Ui.flp(Ui.WRAP, Ui.WRAP, Gravity.CENTER))
         root.addView(v, Ui.flp())
         view = v
@@ -122,7 +124,6 @@ class Standby(private val a: MainActivity, private val root: FrameLayout) {
         refresh()
         v.alpha = 0f
         v.animate().alpha(1f).setDuration(800).start()
-        brightness(0.02f)
         when (a.prefs.standbyKnob) {
             "dim" -> KnobLight.start(KnobLight.NIGHT_LEVEL)
             "off" -> KnobLight.start(0)

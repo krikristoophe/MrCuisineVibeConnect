@@ -1,6 +1,5 @@
 package app.toque.ui.screens
 
-import android.content.Intent
 import android.graphics.drawable.ColorDrawable
 import android.view.Gravity
 import android.view.MotionEvent
@@ -191,7 +190,6 @@ class SettingsScreen(a: MainActivity) : Screen(a) {
         tools.addView(link(tr("Bouton rotatif")) { a.push(KnobScreen(a)) })
         tools.addView(link(tr("Journal")) { a.push(LogScreen(a)) })
         tools.addView(link(tr("Paramètres Android")) { a.openAndroidSettings() })
-        tools.addView(link(tr("Revenir à l'appli d'origine")) { restoreVendor() })
         val version = try { a.packageManager.getPackageInfo(a.packageName, 0).versionName } catch (_: Exception) { "?" }
         tools.addView(Ui.text(c, tr("Toque %s · protocole d'après le Monsieur Cuisine Developer SDK (licence MIT). " +
             "Projet indépendant, non affilié à Lidl ni à SilverCrest.", version), 14f, Ui.TEXT3).apply { setLineSpacing(0f, 1.1f) }, Ui.lp(t = 12))
@@ -328,29 +326,6 @@ class SettingsScreen(a: MainActivity) : Screen(a) {
             shown = popup
         }
         return box
-    }
-
-    private fun restoreVendor() {
-        a.confirm(
-            tr("Revenir à l'appli d'origine"),
-            tr("Toque libère le moteur, rend l'accès à l'appli Monsieur Cuisine d'origine et passe en mode Démo. " +
-                "Toque ne s'ouvrira plus au démarrage du robot."),
-            tr("Revenir"),
-        ) {
-            a.prefs.mode = Prefs.Mode.DEMO
-            a.prefs.bootLaunch = false
-            a.machine.reconfigure {
-                Thread {
-                    val sync = LidlSync(a, a.prefs, a.app.recipes, a.app.log)
-                    sync.setVendorHardware(true)
-                    val launch = sync.components().launch
-                    view.post {
-                        if (launch != null) a.startActivity(launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-                        else a.toast(tr("Appli d'origine introuvable"), Ui.WARN)
-                    }
-                }.start()
-            }
-        }
     }
 
     private fun sync(online: Boolean) {
