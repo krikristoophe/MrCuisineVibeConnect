@@ -43,8 +43,10 @@ class CookScreen(a: MainActivity, private val recipe: Recipe, startStep: Int) : 
     /** Cuisson déjà comptée (« Récentes », « Les plus cuisinées ») pendant cet écran. */
     private var counted = false
 
+    private val rinse = recipe.id == app.toque.core.recipes.Rinse.ID
+
     private fun countCooked() {
-        if (counted) return
+        if (counted || rinse) return
         counted = true
         a.app.recipes.markCooked(recipe.id)
     }
@@ -123,8 +125,16 @@ class CookScreen(a: MainActivity, private val recipe: Recipe, startStep: Int) : 
             countCooked()
             a.prefs.guidedRecipe = ""
             a.chime(1)
-            a.toast(tr("Bon appétit !"), Ui.OK)
-            a.back()
+            if (rinse) {
+                a.toast(tr("Bol rincé"), Ui.OK)
+                a.back()
+            } else {
+                a.toast(tr("Bon appétit !"), Ui.OK)
+                a.back()
+                // Proposé à chaque fin de recette : rincer le bol tant qu'il n'a pas séché.
+                a.confirm(tr("Rincer le bol ?"), tr("Un lavage à l'eau savonneuse puis un rinçage à l'eau claire, environ 4 minutes."),
+                    tr("Rincer"), tr("Plus tard"), icon = Icon.Kind.DROP) { a.push(CookScreen(a, app.toque.core.recipes.Rinse.recipe(), 0)) }
+            }
         } else go(index + 1)
     }
 
@@ -132,7 +142,7 @@ class CookScreen(a: MainActivity, private val recipe: Recipe, startStep: Int) : 
         if (i < 0 || i >= recipe.steps.size) return
         index = i
         weighArmed = false
-        a.prefs.guidedRecipe = recipe.id
+        if (!rinse) a.prefs.guidedRecipe = recipe.id
         a.prefs.guidedStep = index
         autoTare()
         render()
@@ -190,13 +200,10 @@ class CookScreen(a: MainActivity, private val recipe: Recipe, startStep: Int) : 
         turboBtn = null
         reviewBtn = null
         val m = recipe.steps[index].machine
+        // Étape sans réglage machine : pas de panneau, le texte prend la place (« Suivant » en bas).
+        panel.visibility = if (m == null) View.GONE else View.VISIBLE
         if (m == null) {
-            val box = Ui.vertical(c, Gravity.CENTER)
-            box.addView(Icon(c, Icon.Kind.CHECK, Ui.TEXT3), LinearLayout.LayoutParams(Ui.u(48), Ui.u(48)))
-            box.addView(Ui.text(c, tr("Pas de réglage machine pour cette étape"), 18f, Ui.TEXT2).apply { gravity = Gravity.CENTER }, Ui.lp(t = 12))
-            panel.addView(box, LinearLayout.LayoutParams(Ui.MATCH, 0, 1f))
-            startBtn = Ui.button(c, tr("Étape suivante"), Ui.Style.SECONDARY, Icon.Kind.CHEVRON, height = 70) { next() }
-            panel.addView(startBtn)
+            startBtn = View(c)
             return
         }
         // Haut du panneau (titre, réglages, enchaînement, avertissement) : défile s'il manque de la
@@ -267,17 +274,8 @@ class CookScreen(a: MainActivity, private val recipe: Recipe, startStep: Int) : 
         if (violations.isNotEmpty()) {
             panelInfo = tr("Réglage refusé par la sécurité : %s. Utilisez la cuisson manuelle.", violations.first().message)
         }
-        if (step.needsReview && index !in reviewed && violations.isEmpty()) {
-            val rb = Ui.button(c, tr("J'ai vérifié ce réglage"), Ui.Style.GHOST, Icon.Kind.CHECK, height = 56, textSize = 17f) {
-                reviewed += index
-                a.prefs.reviewedSteps = a.prefs.reviewedSteps + reviewKey(index)
-                buildPanel()
-                onSnapshot(a.snapshot)
-            }
-            reviewBtn = rb
-            panel.addView(rb, Ui.lp(t = 8, b = 8))
-            panelInfo = tr("Réglage importé : vérifiez-le avant de lancer.")
-        }
+        // Pas de « J'ai vérifié ce réglage » dans ce fork : les réglages importés se lancent directement
+        // (les règles de sécurité s'appliquent toujours).
         panelState?.text = panelInfo
         if (m.program == StepProgram.TURBO) {
             val t = HoldButton(c, tr("Maintenir pour Turbo"), onDown = {
@@ -295,7 +293,7 @@ class CookScreen(a: MainActivity, private val recipe: Recipe, startStep: Int) : 
                 a.push(ManualScreen(a, m))
             }, Ui.lp(t = 6))
         }
-        val blocked = violations.isNotEmpty() || (step.needsReview && index !in reviewed)
+        val blocked = violations.isNotEmpty()
         Ui.setButtonEnabled(startBtn, !blocked)
     }
 
@@ -305,7 +303,7 @@ class CookScreen(a: MainActivity, private val recipe: Recipe, startStep: Int) : 
         val series = series(first)
         val job = series ?: m.toJob(tr("Étape %d · %s", first + 1, recipe.title), hotBlendConfirmed = hotBlendOk) ?: return
         val count = series?.phases?.size ?: 1
-        a.prefs.guidedRecipe = recipe.id
+        if (!rinse) a.prefs.guidedRecipe = recipe.id
         a.prefs.guidedStep = first
         a.startJob(job, onHotConfirmed = { hotBlendOk = true }) { v ->
             if (v.ok) {

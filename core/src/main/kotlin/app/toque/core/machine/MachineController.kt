@@ -848,6 +848,9 @@ class MachineController(
         if (s.isRest) return true
         val v = ArrayList(baseChecks(now))
         v += SafetyPolicy.checkSetting(s, j.spec.kind, j.spec.accessory, actualTemp(), j.spec.hotBlendConfirmed)
+        // Une fois le programme lancé, le mixage chaud n'interrompt plus : il se confirme au
+        // lancement (SafetyPolicy.checkJob). La montée progressive de la vitesse reste active.
+        if (j.everStarted) v.removeAll { it.code == SafetyPolicy.HOT_BLEND }
         if (v.isEmpty()) return true
         val reason = if (latest?.lidOpen == true) PauseReason.LID else PauseReason.SAFETY
         pauseJob(j, reason, now, v.first().message)

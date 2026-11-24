@@ -274,23 +274,29 @@ class ControllerTest {
         assertEquals(JobState.FINISHED.name, b.snap.jobState)
     }
 
-    /** Un réglage rapide qui suit une chauffe dans la même série redemande la confirmation « contenu chaud ». */
-    @Test fun chainPausesBeforeBlendingHotContents() {
+    /**
+     * Une série qui chauffe puis mixe vite demande la confirmation « contenu chaud » au lancement,
+     * puis ne s'interrompt jamais en cours de route.
+     */
+    @Test fun chainAsksHotBlendAtStartAndNeverPauses() {
         val b = Bench().ready()
         val phases = listOf(
             Phase(Setting(Operation.STANDARD, 1, 13, Direction.CLOCKWISE), 250_000),
             Phase(Setting(Operation.STANDARD, 7, 0, Direction.CLOCKWISE), 10_000),
         )
-        assertTrue(b.c.startJob(JobSpec(JobKind.MANUAL, "série", phases, 260_000, cyclic = false)).ok)
-        b.step(252_000)
-        assertEquals(JobState.PAUSED.name, b.snap.jobState)
-        assertTrue(b.events.any { it.type == EventType.JOB_PAUSED })
-        assertTrue(b.tx.takeLast(5).all { it[2] == 0 })
-        assertFalse(b.c.resume().ok)
-        assertTrue(b.c.resume(hotBlendConfirmed = true).ok)
+        val v = b.c.startJob(JobSpec(JobKind.MANUAL, "série", phases, 260_000, cyclic = false))
+        assertFalse(v.ok)
+        assertTrue(v.has(SafetyPolicy.HOT_BLEND))
+        assertTrue(b.c.startJob(JobSpec(JobKind.MANUAL, "série", phases, 260_000, cyclic = false, hotBlendConfirmed = true)).ok)
+        b.step(255_000)
+        assertTrue(b.snap.actualTempC >= 60)
+        assertFalse(b.events.any { it.type == EventType.JOB_PAUSED })
+        assertEquals(JobState.RUNNING.name, b.snap.jobState)
+        // Pendant la phase rapide (montée progressive à chaud), toujours sans pause.
+        val mark = b.tx.size
         b.step(3_000)
         assertEquals(JobState.RUNNING.name, b.snap.jobState)
-        assertEquals(7, b.tx.last()[2])
+        assertTrue(b.tx.subList(mark, b.tx.size).any { it[2] > 1 })
     }
 
     @Test fun hotRampCanBeTurnedOff() {

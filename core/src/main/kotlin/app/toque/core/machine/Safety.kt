@@ -299,6 +299,14 @@ object SafetyPolicy {
             for (x in checkSetting(p.setting, spec.kind, spec.accessory, actualTemperatureC, spec.hotBlendConfirmed))
                 if (v.none { it.code == x.code }) v += x
         }
+        // Série qui chauffe (≥ 60 °C) puis mixe vite : le mixage chaud se confirme dès le lancement,
+        // pour que le programme ne s'interrompe jamais en cours de route (voir MachineController.enterPhase).
+        if (!spec.hotBlendConfirmed && spec.kind != JobKind.TURBO && v.none { it.code == HOT_BLEND }) {
+            val heat = spec.phases.indexOfFirst { !it.setting.isRest && it.setting.temperatureC >= Limits.HOT_C }
+            val blend = if (heat < 0) null else spec.phases.drop(heat + 1).firstOrNull { !it.setting.isRest && it.setting.speed >= 4 }
+            if (blend != null)
+                v += Violation(HOT_BLEND, tr("Ce programme chauffe puis mixe à vitesse %d : confirmez le mixage chaud", blend.setting.speed))
+        }
         return v
     }
 

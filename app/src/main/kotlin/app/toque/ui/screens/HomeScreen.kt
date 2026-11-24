@@ -24,7 +24,6 @@ class HomeScreen(a: MainActivity) : Screen(a) {
     private lateinit var greeting: TextView
     private lateinit var recipesSub: TextView
     private lateinit var favSub: TextView
-    private lateinit var settingsSub: TextView
     private lateinit var resumeCard: LinearLayout
     private lateinit var resumeText: TextView
     private lateinit var knobChip: LinearLayout
@@ -107,11 +106,10 @@ class HomeScreen(a: MainActivity) : Screen(a) {
         val (t5, s5) = tile(Icon.Kind.STAR, tr("Favoris")) { a.push(RecipesScreen(a, favorites = true)) }
         favSub = s5
         row2.addView(t5, tileLp(true))
-        // Sous-titre seulement quand une nouvelle version de Toque attend d'être installée.
-        val (t6, s6) = tile(Icon.Kind.SETTINGS, tr("Réglages")) { a.push(SettingsScreen(a)) }
-        settingsSub = s6
-        settingsSub.setTextColor(Ui.ACCENT)
-        row2.addView(t6, tileLp(false))
+        // Rinçage du bol à la place des Réglages (passés en icône dans la barre du haut).
+        row2.addView(tile(Icon.Kind.DROP, tr("Rinçage"), tr("Laver et rincer le bol")) {
+            a.push(CookScreen(a, app.toque.core.recipes.Rinse.recipe(), 0))
+        }.first, tileLp(false))
         grid.addView(row1, LinearLayout.LayoutParams(Ui.MATCH, 0, 1f).apply { bottomMargin = Ui.u(16) })
         grid.addView(row2, LinearLayout.LayoutParams(Ui.MATCH, 0, 1f))
         root.addView(grid, LinearLayout.LayoutParams(0, Ui.MATCH, 0.58f))
@@ -176,11 +174,13 @@ class HomeScreen(a: MainActivity) : Screen(a) {
         val favs = repo.index.entries.count { it.favorite }
         favSub.text = if (favs == 0) tr("Aucun favori") else if (favs == 1) tr("1 favori") else tr("%d favoris", favs)
         knobChip.visibility = if (a.prefs.knobReady) View.GONE else View.VISIBLE
-        val update = a.updates.available
-        settingsSub.text = if (update != null) tr("Version %s disponible", update.version) else ""
-        settingsSub.visibility = if (update != null) View.VISIBLE else View.GONE
         val guided = a.prefs.guidedRecipe
-        val title = if (guided.isEmpty()) null else repo.index.entries.firstOrNull { it.id == guided }?.title
+        var title = if (guided.isEmpty()) null else repo.index.entries.firstOrNull { it.id == guided }?.title
+        // L'ancienne recette Lidl de rinçage n'est plus proposée en reprise (le rinçage est un mode).
+        if (title != null && app.toque.core.machine.Programs.isRinseRecipe(title)) {
+            a.prefs.guidedRecipe = ""
+            title = null
+        }
         resumeCard.visibility = if (title != null) View.VISIBLE else View.GONE
         if (title != null) resumeText.text = tr("Reprendre « %s » — étape %d", title, a.prefs.guidedStep + 1)
     }

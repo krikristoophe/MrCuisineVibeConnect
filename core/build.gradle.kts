@@ -21,4 +21,7 @@ dependencies {
 tasks.test {
     // TwinIntegrationTest s'exécute seulement si tools/twin.py tourne (sinon ignoré).
     testLogging { events("passed", "skipped", "failed") }
+    // I18nTest lit les textes de l'appli (app/src/main) : les compter comme entrées, sinon le test
+    // reste « à jour » quand seule l'appli change et des textes orphelins passent inaperçus.
+    inputs.dir("../app/src/main").withPropertyName("appSources")
 }

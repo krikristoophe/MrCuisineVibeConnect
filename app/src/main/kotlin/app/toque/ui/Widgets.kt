@@ -147,7 +147,8 @@ class TempRing(c: Context) : View(c) {
         text.typeface = Ui.THIN
         text.color = Ui.TEXT
         text.textSize = size * 0.30f
-        canvas.drawText("$actual°", cx + size * 0.03f, cy + size * 0.08f, text)
+        // Sous 37 °C la base renvoie 0 : « < 37° » plutôt qu'un « 0° » trompeur.
+        canvas.drawText(if (actual < 37) "<37°" else "$actual°", cx + size * 0.03f, cy + size * 0.08f, text)
         text.typeface = Ui.REGULAR
         text.color = Ui.TEXT2
         text.textSize = size * 0.075f

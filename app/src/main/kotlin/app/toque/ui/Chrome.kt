@@ -50,6 +50,8 @@ class TopBar(private val a: MainActivity) : LinearLayout(a) {
     private val link = Ui.chip(a, "", Icon.Kind.LINK, Ui.TEXT2)
     private val clock = Ui.chip(a, "", Icon.Kind.CLOCK, Ui.TEXT)
     private val home = Icon(a, Icon.Kind.HOME, Ui.TEXT)
+    /** Réglages, sur l'accueil seulement (à la place du bouton Accueil). */
+    private val settings = Icon(a, Icon.Kind.SETTINGS, Ui.TEXT)
     private val handler = Handler(Looper.getMainLooper())
     private val tick = object : Runnable {
         override fun run() {
@@ -81,6 +83,9 @@ class TopBar(private val a: MainActivity) : LinearLayout(a) {
         addView(clock, Ui.lp(Ui.WRAP, Ui.WRAP, r = 8))
         roundButton(home) { a.home() }
         addView(home, LayoutParams(Ui.u(52), Ui.u(52)))
+        roundButton(settings) { a.push(app.toque.ui.screens.SettingsScreen(a)) }
+        settings.contentDescription = tr("Réglages")
+        addView(settings, LayoutParams(Ui.u(52), Ui.u(52)))
         lid.visibility = View.GONE
         bowl.visibility = View.GONE
         temp.visibility = View.GONE
@@ -114,6 +119,7 @@ class TopBar(private val a: MainActivity) : LinearLayout(a) {
         titleView.text = t
         back.visibility = if (canGoBack) View.VISIBLE else View.INVISIBLE
         home.visibility = if (canGoBack) View.VISIBLE else View.GONE
+        settings.visibility = if (canGoBack) View.GONE else View.VISIBLE
     }
 
     fun update(s: Snapshot) {
@@ -121,7 +127,9 @@ class TopBar(private val a: MainActivity) : LinearLayout(a) {
         // Seulement si la détection du bol est exigée : la personne a vérifié que le capteur est
         // fiable (sens réglé), sinon la pastille resterait affichée à tort.
         bowl.visibility = if (s.hasSample && a.prefs.requireBowl && !s.bowlDetected) View.VISIBLE else View.GONE
-        if (s.hasSample) {
+        // Sous 37 °C la base ne donne pas de valeur (elle renvoie 0) : rien à afficher, la pastille
+        // n'apparaît qu'une fois le bol tiède.
+        if (s.hasSample && s.actualTempC >= 37) {
             temp.visibility = View.VISIBLE
             Ui.chipText(temp).text = "${s.actualTempC} °C"
             val col = if (s.actualTempC >= 40) Ui.tempColor(s.actualTempC) else Ui.TEXT2
@@ -196,7 +204,8 @@ class MachineBar(private val a: MainActivity) : FrameLayout(a) {
     init {
         setBackgroundColor(Ui.SURFACE)
         // Programme
-        jobRow.setPadding(Ui.u(22), Ui.u(12), Ui.u(18), Ui.u(12))
+        // Marges larges comme la barre du haut : le cadre du robot cache les bords de l'écran.
+        jobRow.setPadding(Ui.u(30), Ui.u(12), Ui.u(30), Ui.u(20))
         val left = Ui.vertical(a)
         left.addView(label)
         left.addView(state, Ui.lp(t = 4))
@@ -219,8 +228,9 @@ class MachineBar(private val a: MainActivity) : FrameLayout(a) {
         jobRow.addView(okBtn, Ui.lp(Ui.WRAP, Ui.WRAP, l = 10))
         addView(jobRow, Ui.flp(Ui.MATCH, Ui.WRAP))
         // Alerte
-        faultRow.setPadding(Ui.u(22), Ui.u(14), Ui.u(18), Ui.u(14))
-        faultRow.setBackgroundColor(0xFF3A1416.toInt())
+        faultRow.setPadding(Ui.u(30), Ui.u(14), Ui.u(30), Ui.u(20))
+        // Rouge clair (thème clair) : le texte foncé reste lisible, ce qui n'était pas le cas sur le rouge sombre.
+        faultRow.setBackgroundColor(0xFFFDE2E3.toInt())
         faultRow.addView(Icon(a, Icon.Kind.WARNING, Ui.DANGER), LinearLayout.LayoutParams(Ui.u(34), Ui.u(34)).apply { rightMargin = Ui.u(14) })
         faultRow.addView(faultText, LinearLayout.LayoutParams(0, Ui.WRAP, 1f))
         faultRow.addView(Ui.button(a, tr("Acquitter"), Ui.Style.SECONDARY, Icon.Kind.CHECK, height = 60) {

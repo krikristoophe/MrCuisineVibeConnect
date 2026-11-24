@@ -180,13 +180,15 @@ class RecipesScreen(
         val index = repo.index
         searchExec.execute {
             val found = if (q.contains(',')) index.withIngredients(q.split(','), f) else index.search(q, f)
-            val hits = if (u == Usage.NONE) found else {
+            // La recette Lidl de rinçage n'est pas une recette : le rinçage est un mode (Programmes,
+            // accueil, fin de recette).
+            val hits = (if (u == Usage.NONE) found else {
                 // Ordre des cuissons ; la recherche tapée, s'il y en a une, ne fait que filtrer.
                 val ids = if (u == Usage.RECENT) repo.recentIds() else repo.mostCookedIds()
                 val byId = index.entries.associateBy { it.id }
                 val keep = if (q.isBlank()) null else found.mapTo(HashSet()) { it.entry.id }
                 ids.filter { keep == null || it in keep }.mapNotNull { id -> byId[id]?.let { SearchIndex.Hit(it, 0.0, 0) } }
-            }
+            }).filter { !app.toque.core.machine.Programs.isRinseRecipe(it.entry.title) }
             view.post {
                 if (gen != generation) return@post
                 results = hits

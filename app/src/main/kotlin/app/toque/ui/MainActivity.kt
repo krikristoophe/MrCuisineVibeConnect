@@ -578,7 +578,11 @@ class MainActivity : Activity() {
                 confirm(
                     tr("Contenu chaud"),
                     // Smart : la base ne mesure la température qu'après une chauffe ; Toque la croit chaude.
-                    (if (RobotProfiles.active.capabilities.measuresTemperature)
+                    // Bol encore froid : c'est la série qui chauffera puis mixera (confirmé dès le lancement).
+                    (if (snapshot.actualTempC < Limits.HOT_C && RobotProfiles.active.capabilities.measuresTemperature)
+                        tr("Ce programme chauffe puis mixe à vitesse élevée. Mixer chaud peut provoquer des projections.\n\n" +
+                            "Vérifiez que le couvercle est verrouillé, que le gobelet est en place et que le bol n'est pas trop rempli.")
+                    else if (RobotProfiles.active.capabilities.measuresTemperature)
                         tr("Le bol est à %d °C. Mixer chaud peut provoquer des projections.\n\n" +
                             "Vérifiez que le couvercle est verrouillé, que le gobelet est en place et que le bol n'est pas trop rempli.", snapshot.actualTempC)
                     else tr("Ce robot ne mesure pas toujours la température du bol : Toque considère le contenu comme chaud. Mixer chaud peut provoquer des projections.\n\n" +

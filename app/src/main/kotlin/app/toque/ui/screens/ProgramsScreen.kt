@@ -100,10 +100,10 @@ class ProgramsScreen(a: MainActivity) : Screen(a) {
             card.addView(badge, LinearLayout.LayoutParams(Ui.u(56), Ui.u(56)))
             card.addView(Ui.ellipsize(Ui.text(c, p.name, 26f, Ui.TEXT, Ui.MEDIUM)), Ui.lp(t = 14))
             card.addView(Ui.text(c, p.text, 16f, Ui.TEXT2).apply { setLineSpacing(0f, 1.15f) }, Ui.lp(t = 6))
-            if (i == cleaning && cleaning >= 0) rinseRecipe()?.let { r ->
-                // La recette de rinçage du catalogue Lidl, quand elle est synchronisée.
-                card.addView(Ui.button(c, tr("Recette Lidl"), Ui.Style.GHOST, Icon.Kind.BOOK, height = 46, textSize = 16f) {
-                    a.app.recipes.get(r)?.let { a.push(RecipeScreen(a, it)) }
+            if (i == cleaning && cleaning >= 0) {
+                // Le rinçage guidé de Toque (lavage savonneux puis eau claire).
+                card.addView(Ui.button(c, tr("Rinçage guidé"), Ui.Style.GHOST, Icon.Kind.DROP, height = 46, textSize = 16f) {
+                    a.push(CookScreen(a, app.toque.core.recipes.Rinse.recipe(), 0))
                 }, Ui.lp(Ui.WRAP, Ui.WRAP, t = 8))
             }
             card.addView(Ui.spacer(c, weight = 1f), LinearLayout.LayoutParams(1, 0, 1f))
@@ -159,9 +159,6 @@ class ProgramsScreen(a: MainActivity) : Screen(a) {
         refresh()
         return root
     }
-
-    private fun rinseRecipe(): String? =
-        a.app.recipes.index.entries.firstOrNull { Programs.isRinseRecipe(it.title) }?.id
 
     private fun bump(p: Prog, dir: Int) {
         p.seconds = (p.seconds + dir * p.step).coerceIn(p.min, p.max)
