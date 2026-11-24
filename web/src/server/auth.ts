@@ -64,12 +64,15 @@ auth.get("/google/callback", async (c) => {
     return c.redirect("/connexion?erreur=jeton");
   }
 
-  const user = await upsertUser(c.env, claims.sub, claims.email, claims.given_name || claims.name || claims.email.split("@")[0], claims.picture ?? null);
+  // Arrivée par un lien d'invitation (/rejoindre?code=…) : un nouveau compte rejoint directement ce foyer.
+  const nextUrl = new URL(saved.next, "https://x");
+  const invite = nextUrl.pathname === "/rejoindre" ? nextUrl.searchParams.get("code") : null;
+  const { user, joined } = await upsertUser(c.env, claims.sub, claims.email, claims.given_name || claims.name || claims.email.split("@")[0], claims.picture ?? null, invite);
   const sid = randomId(32);
   await c.env.DB.prepare("INSERT INTO sessions (id, user_id, expires_at) VALUES (?, ?, ?)")
     .bind(await sha256(sid), user.id, now() + SESSION_DAYS * 86400_000).run();
   setCookie(c, SESSION_COOKIE, sid, { httpOnly: true, secure: origin(c).startsWith("https"), sameSite: "Lax", path: "/", maxAge: SESSION_DAYS * 86400 });
-  return c.redirect(saved.next);
+  return c.redirect(joined ? "/?bienvenue=1" : saved.next);
 });
 
 auth.post("/logout", async (c) => {
@@ -79,21 +82,33 @@ auth.post("/logout", async (c) => {
   return c.json({ ok: true });
 });
 
-/** Crée l'utilisateur à sa première connexion, avec son propre foyer. */
-async function upsertUser(env: Env, sub: string, email: string, name: string, picture: string | null): Promise<User> {
+/**
+ * Crée l'utilisateur à sa première connexion : dans le foyer de l'invitation s'il en a une valide,
+ * sinon dans un nouveau foyer à son nom. Un compte existant ne change pas de foyer ici (la page
+ * /rejoindre le lui propose).
+ */
+async function upsertUser(env: Env, sub: string, email: string, name: string, picture: string | null, invite: string | null): Promise<{ user: User; joined: boolean }> {
   const existing = await env.DB.prepare("SELECT id, email, name, picture, household_id FROM users WHERE google_sub = ?").bind(sub).first<User>();
   if (existing) {
     await env.DB.prepare("UPDATE users SET email = ?, name = ?, picture = ? WHERE id = ?").bind(email, name, picture, existing.id).run();
-    return { ...existing, email, name, picture };
+    return { user: { ...existing, email, name, picture }, joined: false };
   }
   const id = randomId();
+  const inv = invite
+    ? await env.DB.prepare("SELECT household_id FROM invites WHERE code = ? AND expires_at > ?").bind(invite.toUpperCase(), now()).first<{ household_id: string }>()
+    : null;
+  if (inv) {
+    await env.DB.prepare("INSERT INTO users (id, google_sub, email, name, picture, household_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)")
+      .bind(id, sub, email, name, picture, inv.household_id, now()).run();
+    return { user: { id, email, name, picture, household_id: inv.household_id }, joined: true };
+  }
   const household = randomId();
   await env.DB.batch([
     env.DB.prepare("INSERT INTO households (id, name, created_at) VALUES (?, ?, ?)").bind(household, `Foyer de ${name}`, now()),
     env.DB.prepare("INSERT INTO users (id, google_sub, email, name, picture, household_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)")
       .bind(id, sub, email, name, picture, household, now()),
   ]);
-  return { id, email, name, picture, household_id: household };
+  return { user: { id, email, name, picture, household_id: household }, joined: false };
 }
 
 /** Utilisateur de la session (cookie) ou d'un jeton d'accès OAuth (Authorization: Bearer cma_…, pour le MCP). */

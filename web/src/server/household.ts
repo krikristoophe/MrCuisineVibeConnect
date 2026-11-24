@@ -35,6 +35,14 @@ householdApi.post("/household/invite", async (c) => {
   return c.json({ code, url: `${new URL(c.req.url).origin}/rejoindre?code=${code}` });
 });
 
+/** Foyer d'une invitation (pour l'afficher avant de confirmer). */
+householdApi.get("/invite/:code", async (c) => {
+  const inv = await c.env.DB.prepare("SELECT i.household_id, h.name FROM invites i JOIN households h ON h.id = i.household_id WHERE i.code = ? AND i.expires_at > ?")
+    .bind(c.req.param("code").toUpperCase(), now()).first<{ household_id: string; name: string }>();
+  if (!inv) return c.json({ error: "Invitation inconnue ou expirée." }, 404);
+  return c.json({ household: inv.name, member: inv.household_id === c.get("user").household_id });
+});
+
 householdApi.post("/invite/accept", async (c) => {
   const { code } = (await c.req.json()) as { code: string };
   const inv = await c.env.DB.prepare("SELECT household_id, expires_at FROM invites WHERE code = ?").bind((code ?? "").toUpperCase()).first<{ household_id: string; expires_at: number }>();
