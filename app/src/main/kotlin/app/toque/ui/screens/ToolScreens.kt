@@ -132,6 +132,8 @@ class KnobSetupScreen(a: MainActivity) : Screen(a) {
     override fun build(): View {
         val root = Ui.vertical(c, Gravity.CENTER_HORIZONTAL)
         Ui.screenPadding(root, titled = true)
+        // Centré sur l'écran entier (comme la balance), donc en face du bouton rotatif.
+        root.setPadding(Ui.u(18), root.paddingTop, Ui.u(18 + 80), root.paddingBottom)
         root.addView(Ui.text(c, tr("Le bouton rotatif du robot règle les durées, les vitesses et les températures. Ce réglage ne se fait qu'une fois."),
             20f, Ui.TEXT2).apply { gravity = Gravity.CENTER; setLineSpacing(0f, 1.2f) }, Ui.lp(Ui.MATCH, Ui.WRAP))
         root.addView(Ui.spacer(c, weight = 1f), LinearLayout.LayoutParams(1, 0, 1f))
@@ -215,6 +217,8 @@ class KnobScreen(a: MainActivity) : Screen(a) {
     override fun build(): View {
         val root = Ui.vertical(c, Gravity.CENTER_HORIZONTAL)
         Ui.screenPadding(root, titled = true)
+        // Centré sur l'écran entier (comme la balance), donc en face du bouton rotatif.
+        root.setPadding(Ui.u(18), root.paddingTop, Ui.u(18 + 80), root.paddingBottom)
         info = Ui.text(c, "", 20f, Ui.TEXT2).apply { gravity = Gravity.CENTER; setLineSpacing(0f, 1.2f) }
         root.addView(info, Ui.lp(Ui.MATCH, Ui.WRAP))
         last = Ui.text(c, "—", 60f, Ui.TEXT, Ui.THIN)
