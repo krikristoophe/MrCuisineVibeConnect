@@ -50,6 +50,12 @@ HTTP 401 sur un appel authentifié = robot retiré du foyer : effacer le jeton e
 `GET /api/robot/today` → `{ "today": "2026-11-24", "meals": [ { "day": "2026-11-24", "slot": "midi | soir", "leftoverOf": null | "2026-11-23:soir", "keepNext": false, "recipe": { "id": "…", "title": "…", "image": "https://…", "totalMinutes": 25, "usesRobot": true, "category": "…" } } ] }`
 (aujourd'hui et demain). À afficher sur l'accueil du robot ; toucher un repas ouvre la recette.
 
+## Favoris du foyer
+
+`GET /api/robot/favorites` → `{ "ids": ["web-250008", …] }` : favoris du foyer (ceux de l'appli).
+Le robot remplace ses favoris locaux par cette liste (au démarrage, à chaque synchro et quand
+l'accueil se recharge). Étoile touchée sur le robot : `PUT` ou `DELETE /api/robot/favorites/<id>`.
+
 ## Recettes
 
 La base de recettes Claudimix (commune, modifiable dans l'appli ou par IA) remplace la synchro

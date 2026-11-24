@@ -154,6 +154,30 @@ robotApi.post("/favorites", async (c) => {
   return c.json({ ok: true, count: stmts.length });
 });
 
+/** Favoris du foyer : le robot les affiche sur son accueil et les remplace par cette liste. */
+robotApi.get("/favorites", async (c) => {
+  const robot = await robotFromToken(c);
+  if (!robot) return c.json({ error: "robot inconnu" }, 401);
+  const rows = await c.env.DB.prepare("SELECT recipe_id FROM favorites WHERE household_id = ? ORDER BY created_at").bind(robot.household_id).all<{ recipe_id: string }>();
+  return c.json({ ids: rows.results.map((r) => r.recipe_id) });
+});
+
+/** Étoile touchée sur le robot. */
+robotApi.put("/favorites/:id", async (c) => {
+  const robot = await robotFromToken(c);
+  if (!robot) return c.json({ error: "robot inconnu" }, 401);
+  await c.env.DB.prepare("INSERT OR IGNORE INTO favorites (household_id, recipe_id, created_at) SELECT ?, id, ? FROM recipes WHERE id = ?")
+    .bind(robot.household_id, now(), c.req.param("id")).run();
+  return c.json({ ok: true });
+});
+
+robotApi.delete("/favorites/:id", async (c) => {
+  const robot = await robotFromToken(c);
+  if (!robot) return c.json({ error: "robot inconnu" }, 401);
+  await c.env.DB.prepare("DELETE FROM favorites WHERE household_id = ? AND recipe_id = ?").bind(robot.household_id, c.req.param("id")).run();
+  return c.json({ ok: true });
+});
+
 /** Routes de l'appli (membre connecté). */
 export const robotsApp = new Hono<AppEnv>();
 robotsApp.use("*", requireUser);

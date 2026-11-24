@@ -48,7 +48,7 @@ class HomeScreen(a: MainActivity) : Screen(a) {
         override fun run() {
             refreshClock()
             // Les repas changent rarement : rechargés au plus tous les quarts d'heure (et au changement de jour).
-            a.app.claudimix.refreshToday(maxAgeMs = 15 * 60_000L)
+            a.app.claudimix.refreshToday(maxAgeMs = 2 * 60_000L)
             view.postDelayed(this, 10_000)
         }
     }
@@ -325,7 +325,7 @@ class HomeScreen(a: MainActivity) : Screen(a) {
         refresh()
         unsub = a.app.recipes.onChange { refresh() }
         unsubToday = a.app.claudimix.onChange { renderToday() }
-        a.app.claudimix.refreshToday(maxAgeMs = 15 * 60_000L)
+        a.app.claudimix.refreshToday(maxAgeMs = 2 * 60_000L)
         view.removeCallbacks(tick)
         view.postDelayed(tick, 10_000)
     }

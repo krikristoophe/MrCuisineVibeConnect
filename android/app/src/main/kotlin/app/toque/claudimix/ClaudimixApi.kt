@@ -97,6 +97,18 @@ class ClaudimixApi(private val context: Context, val baseUrl: String = BASE_URL)
         call("POST", "/api/robot/favorites", token, JSONObject().put("ids", JSONArray(ids)).toString())
     }
 
+    /** Favoris du foyer (ceux de l'appli Claudimix). */
+    fun favoriteIds(token: String): List<String> {
+        val list = JSONObject(call("GET", "/api/robot/favorites", token, null)).optJSONArray("ids") ?: JSONArray()
+        return (0 until list.length()).map { list.getString(it) }
+    }
+
+    /** Étoile touchée sur le robot : ajout ou retrait dans les favoris du foyer. */
+    fun setFavorite(token: String, id: String, favorite: Boolean) {
+        val path = "/api/robot/favorites/" + java.net.URLEncoder.encode(id, "UTF-8")
+        if (favorite) call("PUT", path, token, "{}") else call("DELETE", path, token, null)
+    }
+
     private fun call(method: String, path: String, token: String?, body: String?, maxBytes: Int = 2 * 1024 * 1024): String {
         val c = URL(baseUrl + path).openConnection() as HttpsURLConnection
         try {

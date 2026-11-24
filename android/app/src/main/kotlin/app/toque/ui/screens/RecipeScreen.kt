@@ -550,6 +550,8 @@ class RecipeScreen(a: MainActivity, val recipe: Recipe) : Screen(a) {
         a.app.recipes.setFavorite(recipe.id, now)
         // Recette de la communauté, compte relié : l'étoile part aussi sur le site.
         a.app.site.favoriteChanged(recipe.id, now)
+        // Favoris du foyer Claudimix (accueil du robot et appli).
+        a.app.claudimix.favoriteChanged(recipe.id, now)
         refreshFavorite()
         a.toast(if (now) tr("Ajoutée aux favoris") else tr("Retirée des favoris"))
     }

@@ -270,6 +270,7 @@ class Claudimix(private val app: ToqueApp) {
         var removed = 0
         try {
             sendFavorites(token)
+            io.submit { pullFavorites(token) }.get()
             RecipePager.run(prefs.claudimixSince, { since ->
                 val p = api.recipes(token, since)
                 RecipePage(p.recipes.mapNotNull(::decode), p.deleted, p.next, p.until)
@@ -340,6 +341,47 @@ class Claudimix(private val app: ToqueApp) {
         }
     }
 
+    /**
+     * Les favoris du robot deviennent ceux du foyer (ceux de l'appli). Sur le fil [io], après les
+     * étoiles touchées sur le robot qui partent elles aussi par [io] : rien n'est écrasé.
+     */
+    private fun pullFavorites(token: String) {
+        if (!repo.loaded || !prefs.claudimixFavoritesSent) return
+        try {
+            val server = api.favoriteIds(token).toHashSet()
+            val local = repo.favoriteIds()
+            val changes = HashMap<String, Boolean>()
+            for (id in server) if (id !in local) changes[id] = true
+            for (id in local) if (id !in server) changes[id] = false
+            if (changes.isNotEmpty()) {
+                repo.setFavorites(changes)
+                log.write("claudimix", "favoris du foyer : ${changes.count { it.value }} ajouté(s), ${changes.count { !it.value }} retiré(s)")
+            }
+            contact()
+        } catch (e: ClaudimixApi.HttpError) {
+            if (e.status == 401) lost() else failed("favoris", e)
+        } catch (e: Exception) {
+            failed("favoris", e)
+        }
+    }
+
+    /** Étoile touchée sur le robot : envoyée au foyer. */
+    fun favoriteChanged(id: String, favorite: Boolean) {
+        if (!linked) return
+        io.execute {
+            val token = prefs.claudimixToken
+            if (token.isBlank()) return@execute
+            try {
+                api.setFavorite(token, id, favorite)
+                contact()
+            } catch (e: ClaudimixApi.HttpError) {
+                if (e.status == 401) lost() else failed("favoris", e)
+            } catch (e: Exception) {
+                failed("favoris", e)
+            }
+        }
+    }
+
     /** Une fois après l'appairage : les favoris du robot rejoignent ceux du foyer. */
     private fun sendFavorites(token: String) {
         if (prefs.claudimixFavoritesSent || !repo.loaded) return
@@ -361,7 +403,7 @@ class Claudimix(private val app: ToqueApp) {
         return t.meals.filter { it.day == t.today }.sortedBy { if (it.slot == "midi") 0 else 1 }
     }
 
-    /** Recharge les repas s'ils ont plus de [maxAgeMs] (accueil affiché, toutes les 15 min). */
+    /** Recharge les repas s'ils ont plus de [maxAgeMs] (accueil affiché, toutes les 2 min ; favoris du foyer compris). */
     fun refreshToday(maxAgeMs: Long = 0) {
         if (!linked || System.currentTimeMillis() - todayMs < maxAgeMs) return
         todayMs = System.currentTimeMillis()
@@ -373,6 +415,7 @@ class Claudimix(private val app: ToqueApp) {
                 contact()
                 today = t
                 changed()
+                pullFavorites(token)
                 // Photos des repas dont la recette n'est pas (encore) sur le robot.
                 var got = false
                 for (m in t.meals) if (m.image.startsWith("https://") && !RecipePhotos.has(repo, m.image)) {
