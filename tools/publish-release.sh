@@ -30,8 +30,8 @@ APK="$(cd "$(dirname "$APK")" && pwd -P)/$(basename "$APK")"
 cd "$(dirname "$0")/.." || exit 1
 command -v gh > /dev/null 2>&1 || die "GitHub CLI missing: brew install gh"
 
-version=$(sed -n 's/^[[:space:]]*versionName[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' app/build.gradle.kts | head -n 1)
-[ -n "$version" ] || die "versionName not found in app/build.gradle.kts"
+version=$(sed -n 's/^[[:space:]]*versionName[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' android/app/build.gradle.kts | head -n 1)
+[ -n "$version" ] || die "versionName not found in android/app/build.gradle.kts"
 tag="v$version"
 
 if [ -z "${GH_TOKEN:-}" ]; then

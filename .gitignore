@@ -13,8 +13,8 @@ captures/
 *.keystore
 *.jks
 *.p12
-# Clé publique du projet (voir app/build.gradle.kts)
-!app/signature/toque.p12
+# Clé publique du projet (voir android/app/build.gradle.kts)
+!android/app/signature/toque.p12
 # Système
 .DS_Store
 Thumbs.db
@@ -25,5 +25,5 @@ recipe_images/
 diagnostic-recettes.txt
 # Sur un dépôt insensible à la casse (Windows, macOS), « Recipes » cache aussi les dossiers de
 # code « recipes » : un nouveau fichier y resterait invisible pour git.
-!app/src/**/recipes/
-!core/src/**/recipes/
+!android/app/src/**/recipes/
+!android/core/src/**/recipes/

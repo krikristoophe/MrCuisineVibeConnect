@@ -85,14 +85,15 @@ cut off and finishes normally.
 ## Project layout
 
 ```
-core/   Pure Kotlin logic, tested without Android
-        protocol/  serial frames (15 bytes sent, 27 received, 4800 baud)
-        machine/   safety rules, controller, 100 ms loop, links (root serial, TCP, demo)
-        recipes/   model, stock database import, search
-app/    Android app (minSdk 23), no AndroidX
-        machine/   motor control service (":machine" process) and IPC
-        recipes/   local catalogue, Lidl sync
-        ui/        screens
+android/core/  Pure Kotlin logic, tested without Android
+               protocol/  serial frames (15 bytes sent, 27 received, 4800 baud)
+               machine/   safety rules, controller, 100 ms loop, links (root serial, TCP, demo)
+               recipes/   model, stock database import, search
+android/app/   Android app (minSdk 23), no AndroidX
+               machine/   motor control service (":machine" process) and IPC
+               recipes/   local catalogue, Lidl sync
+               ui/        screens
+web/           Claudimix web/mobile app and API (Cloudflare)
 tools/  setup/toque-setup.sh (full install from a Mac, can be driven by an AI agent), robot/
         (scripts run on the robot: root, flash from TWRP, restore), install, restore and release
         scripts (.sh for macOS, the original .ps1 for Windows), twin.py (digital twin for testing)
@@ -102,11 +103,11 @@ AGENTS.md  install procedure for an AI agent
 
 ## Build
 
-Open the folder in **Android Studio**, wait for the Gradle sync, then
+Open the `android/` folder in **Android Studio**, wait for the Gradle sync, then
 **Build › Build App Bundle(s) / APK(s) › Build APK(s)**. The APK is in
-`app/build/outputs/apk/debug/`.
+`android/app/build/outputs/apk/debug/`.
 
-From the command line: `./gradlew assembleDebug` (and `./gradlew :core:test` for the tests). Gradle
+From the command line: `cd android && ./gradlew assembleDebug` (and `./gradlew :core:test` for the tests). Gradle
 needs JDK 17 or 21; with a newer default JDK the build stops with just a version number as error.
 Android Studio's JDK works:
 `export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"`.
@@ -126,7 +127,7 @@ Android Studio's JDK works:
 ## Add a language
 
 The app is written in French; each other language is one file in
-[`app/src/main/assets/lang/`](app/src/main/assets/lang) (`en.json` for English).
+[`android/app/src/main/assets/lang/`](android/app/src/main/assets/lang) (`en.json` for English).
 
 1. Copy `en.json` to `<code>.json` (for example `de.json`), set `"_name"` (for example `"Deutsch"`)
    and translate the values. Keys are the French texts; keep the `%s` / `%d` placeholders.
@@ -134,23 +135,23 @@ The app is written in French; each other language is one file in
 2. Rebuild the app, or, without rebuilding, copy the file to `Android/data/app.toque/files/lang/`
    on the device and restart Toque.
 
-The language then appears in *Settings › Langue · Language*. `./gradlew :core:test` checks
+The language then appears in *Settings › Langue · Language*. `cd android && ./gradlew :core:test` checks
 every language file.
 
 ## Publish a new version
 
-1. Increase `versionCode` and `versionName` in `app/build.gradle.kts`.
+1. Increase `versionCode` and `versionName` in `android/app/build.gradle.kts`.
 2. Commit and push to `main`.
 
 The [release workflow](.github/workflows/release.yml) runs the tests, builds the APK and publishes
 the `vX.Y.Z` release with it. Robots then find it in *Settings › Updates*.
 
-All builds are signed with the project key in `app/signature/` (public on purpose), so an APK built
+All builds are signed with the project key in `android/app/signature/` (public on purpose), so an APK built
 on any PC or by GitHub installs over the previous version. Only install APKs from this repository's
 releases.
 
-Without GitHub Actions: `./gradlew assembleRelease`, then
-`bash tools/publish-release.sh --apk app/build/outputs/apk/release/app-release.apk [--repo owner/name]`
+Without GitHub Actions: `cd android && ./gradlew assembleRelease`, then
+`bash tools/publish-release.sh --apk android/app/build/outputs/apk/release/app-release.apk [--repo owner/name]`
 creates the `vX.Y.Z` release and attaches the APK (needs `gh`; GitHub token: `GH_TOKEN`, `gh auth login`,
 or the credentials already stored for git; `--dry-run` only shows what it would do).
 

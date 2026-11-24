@@ -38,8 +38,8 @@ function Get-Token {
     throw "No GitHub token found (GH_TOKEN, gh, or git credentials)."
 }
 
-$version = ([regex]::Match((Get-Content "app\build.gradle.kts" -Raw), 'versionName\s*=\s*"([^"]+)"')).Groups[1].Value
-if (-not $version) { throw "versionName not found in app\build.gradle.kts" }
+$version = ([regex]::Match((Get-Content "android\app\build.gradle.kts" -Raw), 'versionName\s*=\s*"([^"]+)"')).Groups[1].Value
+if (-not $version) { throw "versionName not found in android\app\build.gradle.kts" }
 $tag = "v$version"
 if (-not (Test-Path $Apk)) { throw "APK not found: $Apk" }
 if ($SmartApk -and -not (Test-Path $SmartApk)) { throw "Smart APK not found: $SmartApk" }

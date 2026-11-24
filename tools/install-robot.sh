@@ -4,7 +4,7 @@
 # adb: $ADB if set, else the Android SDK's, else the one on the PATH.
 set -u
 REPO=$(cd "$(dirname "$0")/.." && pwd -P)
-APK="$REPO/app/build/outputs/apk/debug/app-debug.apk"
+APK="$REPO/android/app/build/outputs/apk/debug/app-debug.apk"
 IP=""
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -23,7 +23,7 @@ ADB=${ADB:-adb}
 adb_() { if [ -n "$IP" ]; then "$ADB" -s "$IP:5555" "$@"; else "$ADB" "$@"; fi; }
 
 if [ ! -f "$APK" ]; then
-  echo "APK not found: $APK (./gradlew assembleDebug, or download it from GitHub Releases)"
+  echo "APK not found: $APK (cd android && ./gradlew assembleDebug, or download it from GitHub Releases)"
   exit 1
 fi
 [ -n "$IP" ] && "$ADB" connect "$IP:5555"

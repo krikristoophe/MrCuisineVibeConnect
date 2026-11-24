@@ -250,12 +250,12 @@ and without macFUSE the FUSE package stops mtkclient from starting
 
 ## Working on the code
 
-If you were asked to change Toque rather than install it: `core/` is pure Kotlin (no Android) and
-holds the protocol, the safety rules, the controller and the recipe parsing; `app/` is the Android
-app (minSdk 23, no AndroidX, views built in code). Run `./gradlew :core:test` (unit tests, including
-a check that every interface text has an English translation in `app/src/main/assets/lang/en.json`)
+If you were asked to change Toque rather than install it: `android/core/` is pure Kotlin (no Android) and
+holds the protocol, the safety rules, the controller and the recipe parsing; `android/app/` is the Android
+app (minSdk 23, no AndroidX, views built in code). From `android/`, run `./gradlew :core:test` (unit tests, including
+a check that every interface text has an English translation in `android/app/src/main/assets/lang/en.json`)
 and `./gradlew :app:assembleRelease`, with JDK 17 or 21 (Android Studio's:
 `export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"`). Interface texts are
-written in French and wrapped in `tr(...)`. Motor safety rules live in `core/.../machine/Safety.kt`
+written in French and wrapped in `tr(...)`. Motor safety rules live in `android/core/.../machine/Safety.kt`
 and are enforced by `MachineController`: keep them strict, and add a test in `ControllerTest` for any
 behaviour change.

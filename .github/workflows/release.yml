@@ -1,4 +1,4 @@
-# Publishes a Toque release automatically when versionName changes in app/build.gradle.kts.
+# Publishes a Toque release automatically when versionName changes in android/app/build.gradle.kts.
 # Robots then find it in Settings › Updates.
 name: Publish a release
 
@@ -25,7 +25,7 @@ jobs:
       - name: App version
         id: version
         run: |
-          v=$(grep -oP 'versionName\s*=\s*"\K[^"]+' app/build.gradle.kts)
+          v=$(grep -oP 'versionName\s*=\s*"\K[^"]+' android/app/build.gradle.kts)
           echo "name=$v" >> "$GITHUB_OUTPUT"
           if git rev-parse -q --verify "refs/tags/v$v" >/dev/null; then
             echo "Version $v is already published: nothing to do."
@@ -44,10 +44,11 @@ jobs:
         if: steps.version.outputs.publish == 'true'
         run: |
           v="${{ steps.version.outputs.name }}"
+          cd android
           ./gradlew --no-daemon :core:test :app:assembleRelease
-          cp app/build/outputs/apk/release/app-release.apk "Toque-$v.apk"
+          cp app/build/outputs/apk/release/app-release.apk "../Toque-$v.apk"
           ./gradlew --no-daemon :app:assembleRelease -PtoqueSmart=true
-          cp app/build/outputs/apk/release/app-release.apk "Toque-smart-$v.apk"
+          cp app/build/outputs/apk/release/app-release.apk "../Toque-smart-$v.apk"
 
       - name: Publish on GitHub
         if: steps.version.outputs.publish == 'true'

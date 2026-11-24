@@ -1,7 +1,7 @@
 ﻿# Installs Toque on the Monsieur Cuisine Connect (rooted, ADB enabled).
 # Usage: powershell -ExecutionPolicy Bypass -File tools\install-robot.ps1 [-Apk path.apk] [-Ip 192.168.1.x]
 param(
-    [string]$Apk = "app\build\outputs\apk\debug\app-debug.apk",
+    [string]$Apk = "android\app\build\outputs\apk\debug\app-debug.apk",
     [string]$Ip = ""
 )
 $ErrorActionPreference = "Stop"

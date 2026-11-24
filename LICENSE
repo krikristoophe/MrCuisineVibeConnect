@@ -21,7 +21,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ---
-The protocol codec (core/.../protocol/Mcc.kt), the test vectors
-(core/src/test/resources/mcc) and tools/twin.py are based on the
+The protocol codec (android/core/.../protocol/Mcc.kt), the test vectors
+(android/core/src/test/resources/mcc) and tools/twin.py are based on the
 "Monsieur Cuisine Developer SDK" (MIT License): see
 docs/LICENSE-monsieur-cuisine-developer-sdk.txt.
