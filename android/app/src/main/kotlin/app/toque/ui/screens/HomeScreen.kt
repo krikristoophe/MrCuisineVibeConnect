@@ -31,6 +31,10 @@ class HomeScreen(a: MainActivity) : Screen(a) {
     private lateinit var greeting: TextView
     private lateinit var resumeBox: FrameLayout
     private lateinit var knobChip: LinearLayout
+    private lateinit var todaySection: LinearLayout
+    private lateinit var todayRow: LinearLayout
+    private var todayShown = ""
+    private var unsubToday: (() -> Unit)? = null
     private lateinit var favSection: LinearLayout
     private lateinit var favRow: LinearLayout
     private lateinit var favEmpty: TextView
@@ -43,6 +47,8 @@ class HomeScreen(a: MainActivity) : Screen(a) {
     private val tick = object : Runnable {
         override fun run() {
             refreshClock()
+            // Les repas changent rarement : rechargés au plus tous les quarts d'heure (et au changement de jour).
+            a.app.claudimix.refreshToday(maxAgeMs = 15 * 60_000L)
             view.postDelayed(this, 10_000)
         }
     }
@@ -64,6 +70,14 @@ class HomeScreen(a: MainActivity) : Screen(a) {
         resumeBox = FrameLayout(c)
         head.addView(resumeBox, LinearLayout.LayoutParams(0, Ui.WRAP, 1f).apply { leftMargin = Ui.u(28) })
         page.addView(head)
+
+        // Repas du jour prévus dans Claudimix (midi, soir) : rien si le robot n'est pas relié.
+        todaySection = Ui.vertical(c)
+        todaySection.addView(Ui.text(c, tr("Aujourd'hui"), 20f, Ui.TEXT, Ui.MEDIUM), Ui.lp(b = 12))
+        todayRow = Ui.horizontal(c, Gravity.TOP)
+        todaySection.addView(todayRow, Ui.lp())
+        todaySection.visibility = View.GONE
+        page.addView(todaySection, Ui.lp(t = 22))
 
         // Rappel tant que le bouton rotatif n'est ni réglé ni vu en marche.
         knobChip = Ui.chip(c, tr("Bouton rotatif à régler"), Icon.Kind.WARNING, Ui.WARN, 0x33FFC14D, 18f)
@@ -184,6 +198,61 @@ class HomeScreen(a: MainActivity) : Screen(a) {
         recentSection.visibility = if (recent.isEmpty()) View.GONE else View.VISIBLE
 
         renderResume()
+        renderToday()
+    }
+
+    /** Section « Aujourd'hui » : une grande carte par repas (photo, midi ou soir, restes, titre). */
+    private fun renderToday() {
+        val cx = a.app.claudimix
+        val repo = a.app.recipes
+        val meals = if (cx.linked) cx.todayMeals() else emptyList()
+        val key = meals.joinToString(",") { "${it.slot}|${it.recipeId}|${it.leftoverOf}|${repo.imageFile(app.toque.recipes.RecipePhotos.fileName(image(it))) != null}" } + repo.loaded
+        if (key == todayShown) return
+        todayShown = key
+        todayRow.removeAllViews()
+        todaySection.visibility = if (meals.isEmpty()) View.GONE else View.VISIBLE
+        for ((i, m) in meals.take(2).withIndex()) {
+            todayRow.addView(mealCard(m), LinearLayout.LayoutParams(0, Ui.WRAP, 1f).apply { if (i == 0) rightMargin = Ui.u(16) })
+        }
+        // Un seul repas : la carte garde la largeur d'une moitié.
+        if (meals.size == 1) todayRow.addView(View(c), LinearLayout.LayoutParams(0, 1, 1f))
+    }
+
+    /** Photo du repas : celle de la recette sur le robot, sinon celle envoyée avec le repas. */
+    private fun image(m: app.toque.claudimix.ClaudimixApi.Meal): String =
+        a.app.recipes.index.entries.firstOrNull { it.id == m.recipeId }?.image?.takeIf { it.isNotBlank() } ?: m.image
+
+    private fun mealCard(m: app.toque.claudimix.ClaudimixApi.Meal): View {
+        val repo = a.app.recipes
+        val card = Ui.horizontal(c)
+        card.background = Ui.pressable(Ui.round(Ui.SURFACE, 22f), 22f)
+        card.setPadding(Ui.u(12), Ui.u(12), Ui.u(18), Ui.u(12))
+        val box = FrameLayout(c)
+        box.background = Ui.gradient(Ui.placeholderColors(m.title), 16f)
+        val img = ImageView(c).apply { scaleType = ImageView.ScaleType.CENTER_CROP }
+        box.addView(img, Ui.flp())
+        box.clipToOutline = true
+        box.outlineProvider = object : android.view.ViewOutlineProvider() {
+            override fun getOutline(view: View, outline: android.graphics.Outline) =
+                outline.setRoundRect(0, 0, view.width, view.height, Ui.uf(16f))
+        }
+        ImageLoader.load(img, repo.imageFile(app.toque.recipes.RecipePhotos.fileName(image(m))), Ui.u(200))
+        card.addView(box, LinearLayout.LayoutParams(Ui.u(150), Ui.u(112)).apply { rightMargin = Ui.u(16) })
+        val info = Ui.vertical(c)
+        val tags = Ui.horizontal(c)
+        tags.addView(Ui.text(c, (if (m.slot == "midi") tr("Midi") else tr("Soir")).uppercase(I18n.locale), 13f, Ui.ACCENT, Ui.MEDIUM)
+            .apply { letterSpacing = 0.08f })
+        if (m.leftoverOf != null) tags.addView(Ui.chip(c, tr("Restes"), null, Ui.TEXT2, Ui.SURFACE2, 13f), Ui.lp(Ui.WRAP, Ui.WRAP, l = 10))
+        info.addView(tags)
+        info.addView(Ui.ellipsize(Ui.text(c, m.title, 20f, Ui.TEXT, Ui.MEDIUM).apply { setLineSpacing(0f, 1.05f) }, 2), Ui.lp(t = 6))
+        if (m.totalMinutes > 0) info.addView(Ui.text(c, Ui.minutes(m.totalMinutes), 15f, Ui.TEXT2), Ui.lp(t = 6))
+        card.addView(info, LinearLayout.LayoutParams(0, Ui.WRAP, 1f))
+        card.isClickable = true
+        card.setOnClickListener {
+            val r = repo.get(m.recipeId)
+            if (r != null) a.push(RecipeScreen(a, r)) else a.toast(tr("Recette pas encore reçue sur le robot : réessayez après la synchro."), Ui.WARN)
+        }
+        return card
     }
 
     /** Recette en cours : photo, titre, progression, Reprendre et une croix pour l'abandonner. */
@@ -255,12 +324,16 @@ class HomeScreen(a: MainActivity) : Screen(a) {
         refreshClock()
         refresh()
         unsub = a.app.recipes.onChange { refresh() }
+        unsubToday = a.app.claudimix.onChange { renderToday() }
+        a.app.claudimix.refreshToday(maxAgeMs = 15 * 60_000L)
         view.removeCallbacks(tick)
         view.postDelayed(tick, 10_000)
     }
 
     override fun onHide() {
         unsub?.invoke()
+        unsubToday?.invoke()
+        unsubToday = null
         view.removeCallbacks(tick)
     }
 

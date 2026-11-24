@@ -5,6 +5,7 @@ import android.view.View
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
+import app.toque.core.claudimix.Cooking
 import app.toque.core.i18n.tr
 import app.toque.core.machine.Accessory
 import app.toque.core.machine.EventType
@@ -120,8 +121,42 @@ class CookScreen(a: MainActivity, private val recipe: Recipe, startStep: Int) : 
         return root
     }
 
+    /** Ce que cet écran montre, pour l'état envoyé à Claudimix (voir [app.toque.claudimix.Claudimix]). */
+    private fun cooking(onScreen: Boolean = true): Cooking? {
+        if (rinse) return null
+        val step = recipe.steps.getOrNull(index) ?: return null
+        val next = recipe.steps.getOrNull(index + 1)
+        return Cooking(
+            recipeId = recipe.id,
+            title = recipe.title,
+            index = index,
+            total = recipe.steps.size,
+            text = step.text.ifBlank { step.machine?.summary ?: "" },
+            next = next?.let { it.text.ifBlank { it.machine?.summary ?: "" } },
+            weighGrams = step.weigh?.grams ?: 0,
+            weighLabel = step.weigh?.label ?: "",
+            machine = step.machine?.summary,
+            stepDone = index in done,
+            onScreen = onScreen,
+        )
+    }
+
+    private fun report() {
+        if (!finishReported) a.app.claudimix.cooking(cooking())
+    }
+
+    /** Fin de la recette (dernier programme terminé, ou « Terminer ») : une seule fois par écran. */
+    private var finishReported = false
+
+    private fun reportFinished() {
+        if (finishReported) return
+        finishReported = true
+        cooking()?.let { a.app.claudimix.recipeFinished(it) }
+    }
+
     private fun next() {
         if (index >= recipe.steps.size - 1) {
+            reportFinished()
             countCooked()
             a.prefs.guidedRecipe = ""
             a.chime(1)
@@ -188,6 +223,7 @@ class CookScreen(a: MainActivity, private val recipe: Recipe, startStep: Int) : 
         nextLabel.text = if (index == n - 1) tr("Terminer") else tr("Suivant")
         buildPanel()
         onSnapshot(a.snapshot)
+        report()
     }
 
     private lateinit var startBtn: View
@@ -433,11 +469,24 @@ class CookScreen(a: MainActivity, private val recipe: Recipe, startStep: Int) : 
 
     override fun ownsFinishSound(e: MachineEvent): Boolean = endsRecipe(e)
 
+    override fun onShow() {
+        if (!finishReported) report()
+    }
+
+    override fun onHide() {
+        // Programme encore en cours (écran quitté) : la recette reste connue, sans action attendue.
+        a.app.claudimix.cooking(if (a.snapshot.busy && !finishReported) cooking(onScreen = false) else null)
+    }
+
     override fun onEvent(e: MachineEvent) {
-        if (endsRecipe(e)) a.recipeDoneSound()
+        if (endsRecipe(e)) {
+            a.recipeDoneSound()
+            reportFinished()
+        }
         if (e.type == EventType.JOB_FINISHED && launchedStep >= 0 && index >= launchedStep && index < launchedStep + launchedCount) {
             val finished = launchedStep + launchedCount - 1
             for (k in launchedStep..finished) done += k
+            if (!finishReported) report()
             launchedStep = -1
             launchedCount = 1
             if (index != finished) go(finished)

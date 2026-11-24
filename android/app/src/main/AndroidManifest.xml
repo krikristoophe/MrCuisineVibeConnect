@@ -57,15 +57,7 @@
             android:stopWithTask="false" />
 
         <service
-            android:name=".recipes.SyncService"
-            android:exported="false" />
-
-        <service
             android:name=".ui.ReturnBubble"
-            android:exported="false" />
-
-        <receiver
-            android:name=".recipes.SyncAlarm"
             android:exported="false" />
 
         <receiver

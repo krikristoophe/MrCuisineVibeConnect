@@ -9,18 +9,12 @@ import android.widget.LinearLayout
 import android.widget.PopupWindow
 import android.widget.ScrollView
 import android.widget.TextView
-import app.toque.Prefs
 import app.toque.TimeSync
 import app.toque.core.i18n.I18n
 import app.toque.core.i18n.tr
 import app.toque.core.i18n.trKey
 import app.toque.core.time.ZoneLookup
-import app.toque.recipes.LidlSync
-import app.toque.core.recipes.McOnline
-import app.toque.recipes.OnlineSync
-import app.toque.recipes.SyncProgress
 import app.toque.recipes.RecipeFiles
-import app.toque.core.recipes.CommunityRecipes
 import app.toque.core.recipes.UserRecipes
 import app.toque.ui.Icon
 import app.toque.ui.MainActivity
@@ -30,20 +24,18 @@ import app.toque.ui.Ui
 class SettingsScreen(a: MainActivity) : Screen(a) {
     private companion object {
         /** Rubrique ouverte : gardée quand les réglages sont reconstruits (changement de langue). */
-        var lastTab = Tab.RECIPES
+        var lastTab = Tab.CLAUDIMIX
     }
 
     override val title = tr("Réglages")
-    private lateinit var syncText: TextView
-    private lateinit var syncBtn: View
-    private lateinit var stopSyncBtn: View
-    /** Absent sur un robot dont la base de l'appli d'origine n'est pas encore lue (Smart). */
-    private var importBtn: View? = null
     private lateinit var timeText: TextView
+    private val claudimix = ClaudimixPanel(a)
+    private var shown = false
     private var settingTime = false
 
     /** Rubriques du menu latéral : une seule est affichée à droite, sans défilement de toute la page. */
     private enum class Tab(val fr: String, val icon: Icon.Kind) {
+        CLAUDIMIX(trKey("Claudimix"), Icon.Kind.LINK),
         RECIPES(trKey("Recettes"), Icon.Kind.BOOK),
         DISPLAY(trKey("Écran et langue"), Icon.Kind.GLOBE),
         TIME(trKey("Date et heure"), Icon.Kind.CLOCK),
@@ -80,6 +72,7 @@ class SettingsScreen(a: MainActivity) : Screen(a) {
             nav.addView(row, Ui.lp(Ui.MATCH, Ui.u(64), b = 6))
             navRows[t] = row
         }
+        pages.getValue(Tab.CLAUDIMIX).addView(claudimix.view, Ui.lp())
         val recipesPage = pages.getValue(Tab.RECIPES)
         val displayPage = pages.getValue(Tab.DISPLAY)
         val timePage = pages.getValue(Tab.TIME)
@@ -121,62 +114,8 @@ class SettingsScreen(a: MainActivity) : Screen(a) {
             Ui.lp(Ui.WRAP, Ui.WRAP, t = 10))
         refreshTime()
 
-        // ---- Recettes Lidl
-        val lidl = section(recipesPage, tr("Recettes Lidl"), Icon.Kind.SYNC)
-        val chosen = a.prefs.robot
-        val lidlIntro = if (chosen.lidlDevice == "MC2.0") tr("Toque télécharge lui-même les recettes officielles du Monsieur Cuisine connect sur monsieur-cuisine.com (sans compte).")
-            else tr("Toque télécharge lui-même les recettes officielles du %s sur monsieur-cuisine.com (sans compte).", chosen.displayName)
-        lidl.addView(Ui.text(c, lidlIntro, 16f, Ui.TEXT2).apply { setLineSpacing(0f, 1.15f) })
-        syncText = Ui.text(c, "", 16f, Ui.TEXT)
-        lidl.addView(syncText, Ui.lp(t = 10))
-        val b1 = Ui.horizontal(c)
-        syncBtn = Ui.button(c, tr("Synchroniser"), Ui.Style.PRIMARY, Icon.Kind.SYNC, height = 58) { sync(online = true) }
-        b1.addView(syncBtn, Ui.lp(Ui.WRAP, Ui.WRAP, r = 10))
-        // Visible seulement pendant une synchronisation ; ce qui est déjà fait est gardé.
-        stopSyncBtn = Ui.button(c, tr("Arrêter"), Ui.Style.SECONDARY, Icon.Kind.STOP, height = 58) { SyncProgress.requestStop() }
-        b1.addView(stopSyncBtn)
-        lidl.addView(b1, Ui.lp(t = 12))
-        // Import depuis l'appli d'origine : seulement là où Toque sait lire sa base (pas encore le Smart).
-        if (chosen.stockImport) {
-            lidl.addView(Ui.text(c, tr("Autre source : les recettes déjà présentes dans l'appli d'origine du robot (remplacent celles du site)."),
-                14f, Ui.TEXT3).apply { setLineSpacing(0f, 1.1f) }, Ui.lp(t = 12))
-            // Un bouton par ligne : côte à côte, « Ouvrir l'appli d'origine » n'avait plus la place et
-            // son texte se coupait au milieu d'un mot.
-            val btn = Ui.button(c, tr("Importer de l'appli d'origine"), Ui.Style.SECONDARY, height = 52) { sync(online = false) }
-            lidl.addView(btn, Ui.lp(Ui.WRAP, Ui.WRAP, t = 6))
-            importBtn = btn
-        }
-        lidl.addView(Ui.button(c, tr("Ouvrir l'appli d'origine"), Ui.Style.GHOST, Icon.Kind.LINK, height = 52) { a.openVendorApp() },
-            Ui.lp(Ui.WRAP, Ui.WRAP, t = if (chosen.stockImport) 8 else 12))
-        lidl.addView(Ui.text(c, tr("Langue des recettes"), 18f, Ui.TEXT), Ui.lp(t = 12))
-        val recipeLangs = McOnline.RECIPE_LANGUAGES.map { code ->
-            code to when (code) {
-                "auto" -> tr("Automatique (selon l'interface)")
-                "es-ES" -> "Español"
-                "fr-FR" -> "Français"
-                "en-US" -> "English"
-                "de-DE" -> "Deutsch"
-                "it-IT" -> "Italiano"
-                "pt-PT" -> "Português"
-                "nl-NL" -> "Nederlands"
-                "pl-PL" -> "Polski"
-                else -> code
-            }
-        }
-        lidl.addView(dropdown(recipeLangs, a.prefs.recipeLanguage) { code ->
-            a.prefs.recipeLanguage = code
-            a.toast(tr("Pris en compte à la prochaine synchronisation"))
-        }, Ui.lp(Ui.MATCH, Ui.u(58), t = 8))
-        lidl.addView(toggle(tr("Synchro automatique chaque nuit"), a.prefs.autoSync) { a.prefs.autoSync = it }, Ui.lp(t = 10))
-        lidl.addView(toggle(tr("Recettes des autres langues"), a.prefs.foreignRecipes) {
-            a.prefs.foreignRecipes = it
-            a.toast(tr("Pris en compte à la prochaine synchronisation"))
-        }, Ui.lp(t = 10))
-        lidl.addView(Ui.text(c, tr("Ajoute les recettes qui n'existent pas dans votre langue, prises en anglais, français, allemand, espagnol… Chacune n'apparaît qu'une fois, avec sa langue sur la vignette."),
-            14f, Ui.TEXT3).apply { setLineSpacing(0f, 1.1f) }, Ui.lp(t = 6))
-
         // ---- Mes recettes
-        val mine = section(recipesPage, tr("Mes recettes"), Icon.Kind.EDIT, divider = true)
+        val mine = section(recipesPage, tr("Mes recettes"), Icon.Kind.EDIT)
         mine.addView(Ui.text(c, tr("Sauvegardez vos recettes, ou passez-les à un autre robot, avec le fichier %s du dossier Download.", UserRecipes.FILE_NAME),
             16f, Ui.TEXT2).apply { setLineSpacing(0f, 1.15f) })
         val files = Ui.horizontal(c)
@@ -190,6 +129,7 @@ class SettingsScreen(a: MainActivity) : Screen(a) {
         tools.addView(link(tr("Bouton rotatif")) { a.push(KnobScreen(a)) })
         tools.addView(link(tr("Journal")) { a.push(LogScreen(a)) })
         tools.addView(link(tr("Paramètres Android")) { a.openAndroidSettings() })
+        tools.addView(link(tr("Ouvrir l'appli d'origine")) { a.openVendorApp() })
         val version = try { a.packageManager.getPackageInfo(a.packageName, 0).versionName } catch (_: Exception) { "?" }
         tools.addView(Ui.text(c, tr("Toque %s · protocole d'après le Monsieur Cuisine Developer SDK (licence MIT). " +
             "Projet indépendant, non affilié à Lidl ni à SilverCrest.", version), 14f, Ui.TEXT3).apply { setLineSpacing(0f, 1.1f) }, Ui.lp(t = 12))
@@ -205,6 +145,7 @@ class SettingsScreen(a: MainActivity) : Screen(a) {
     /** Affiche une rubrique : sa page à droite, sa ligne surlignée dans le menu. */
     private fun show(t: Tab) {
         lastTab = t
+        claudimix.setActive(shown && t == Tab.CLAUDIMIX)
         for ((k, page) in pages) page.visibility = if (k == t) View.VISIBLE else View.GONE
         for ((k, row) in navRows) row.background = Ui.pressable(Ui.round(if (k == t) Ui.ACCENT_DIM else 0, 18f), 18f)
         pageScroll.scrollTo(0, 0)
@@ -328,31 +269,6 @@ class SettingsScreen(a: MainActivity) : Screen(a) {
         return box
     }
 
-    private fun sync(online: Boolean) {
-        if (SyncProgress.running) return
-        if (!online && a.prefs.mode != Prefs.Mode.HARDWARE) {
-            a.toast(tr("Disponible une fois Toque installé sur le robot (mode Machine réelle)"), Ui.WARN)
-            return
-        }
-        if (!online && !a.prefs.robot.stockImport) {
-            // Base de l'appli d'origine du Smart : format pas encore relevé.
-            a.toast(tr("Pas encore possible sur ce robot : utilisez « Synchroniser »"), Ui.WARN)
-            return
-        }
-        // L'avancement vit dans SyncProgress, pas dans cet écran : on peut le quitter et y revenir.
-        SyncProgress.start(tr("Synchronisation en cours… (quelques minutes)"), stoppable = online)
-        val app = a.app
-        Thread {
-            val r = if (online) OnlineSync(app, app.prefs, app.recipes, app.log).sync()
-            else try {
-                LidlSync(app, app.prefs, app.recipes, app.log).importNow { SyncProgress.report(it) }
-            } finally {
-                SyncProgress.finished()
-            }
-            a.runOnUiThread { a.toast(r.message, if (r.ok) Ui.OK else Ui.WARN) }
-        }.start()
-    }
-
     private fun recipeFiles(export: Boolean) {
         a.withStorage { ok ->
             if (!ok) { a.toast(tr("Accès au dossier Download refusé"), Ui.WARN); return@withStorage }
@@ -389,53 +305,14 @@ class SettingsScreen(a: MainActivity) : Screen(a) {
         }.start()
     }
 
-    private fun refreshSync() {
-        val progress = SyncProgress.message
-        val running = progress != null
-        // Pendant une synchronisation : rien à relancer, et un bouton pour l'arrêter.
-        Ui.setButtonEnabled(syncBtn, !running)
-        importBtn?.let { Ui.setButtonEnabled(it, !running) }
-        stopSyncBtn.visibility = if (running && SyncProgress.stoppable) View.VISIBLE else View.GONE
-        Ui.setButtonEnabled(stopSyncBtn, !SyncProgress.stopRequested)
-        val last = a.prefs.lastSyncResult
-        val first = when {
-            progress == null -> if (last.isEmpty()) tr("Jamais synchronisé") else tr("Dernière synchro le %s", lastLine(last, a.prefs.lastSyncLang, a.prefs.lastSyncMs))
-            SyncProgress.stopRequested -> tr("Arrêt en cours…")
-            else -> progress
-        }
-        // Le nombre de recettes reste affiché sous l'avancement : « Recettes : 343 / 1667 » compte les fiches relues, pas le catalogue.
-        val repo = a.app.recipes
-        syncText.text = first + "\n" + if (repo.loaded) tr("%d recettes dans Toque", repo.count) +
-            // Recettes enregistrées mais pas faisables sur ce robot (autre robot, programme absent).
-            (if (repo.hiddenCount > 0) "\n" + tr("%d recettes masquées : pas faites pour ce robot", repo.hiddenCount) else "")
-            else tr("Chargement des recettes…")
-    }
-
-    /**
-     * Ligne « date : résultat » d'une synchro. Écrite dans une autre langue que celle de l'appli
-     * (langue changée depuis) : seulement la date, dans la langue d'aujourd'hui, plutôt qu'un texte
-     * dans l'ancienne langue. Le résultat complet revient à la synchro suivante.
-     */
-    private fun lastLine(text: String, lang: String, ms: Long): String =
-        if (lang.isEmpty() || lang == I18n.code || ms <= 0) text
-        else java.text.SimpleDateFormat(tr("dd/MM à HH:mm"), I18n.locale).format(java.util.Date(ms))
-
-    /** Désabonnement du suivi des recettes (le nombre s'affiche une fois la base chargée). */
-    private var unsubRecipes: (() -> Unit)? = null
-    private var unsubSync: (() -> Unit)? = null
-
     override fun onShow() {
-        refreshSync()
-        // Recettes rechargées (synchro, import) : le nombre affiché se met à jour.
-        unsubRecipes = a.app.recipes.onChange { refreshSync() }
-        unsubSync = SyncProgress.onChange { refreshSync() }
+        shown = true
+        claudimix.setActive(lastTab == Tab.CLAUDIMIX)
     }
 
     override fun onHide() {
-        unsubRecipes?.invoke()
-        unsubRecipes = null
-        unsubSync?.invoke()
-        unsubSync = null
+        shown = false
+        claudimix.setActive(false)
     }
 
 }

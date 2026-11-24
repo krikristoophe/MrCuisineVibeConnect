@@ -66,12 +66,12 @@ object Http {
     }
 
     /** Petit fichier (photo d'une recette du site) : ses octets ; IOException si la réponse n'est pas 200 ou dépasse [maxBytes]. */
-    fun bytes(url: String, timeoutMs: Int = 15_000, maxBytes: Int = 1024 * 1024): ByteArray {
+    fun bytes(url: String, timeoutMs: Int = 15_000, maxBytes: Int = 1024 * 1024, followRedirects: Boolean = false): ByteArray {
         val c = URL(url).openConnection() as HttpURLConnection
         try {
             c.connectTimeout = timeoutMs
             c.readTimeout = timeoutMs
-            c.instanceFollowRedirects = false
+            c.instanceFollowRedirects = followRedirects
             c.setRequestProperty("User-Agent", userAgent)
             val code = c.responseCode
             if (code != 200) throw IOException(tr("réponse %d du serveur", code))

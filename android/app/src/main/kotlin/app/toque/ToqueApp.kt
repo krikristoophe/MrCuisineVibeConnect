@@ -24,6 +24,8 @@ class ToqueApp : Application() {
     val recipes: RecipeRepo by lazy { RecipeRepo(this) }
     /** toqueapp.org : compte relié, recettes de la communauté. */
     val site: app.toque.site.SiteAccount by lazy { app.toque.site.SiteAccount(this) }
+    /** Service web Claudimix : appairage, état en temps réel, recettes et repas du foyer. */
+    val claudimix: app.toque.claudimix.Claudimix by lazy { app.toque.claudimix.Claudimix(this) }
 
     override fun onCreate() {
         super.onCreate()

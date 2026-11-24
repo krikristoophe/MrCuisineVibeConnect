@@ -34,9 +34,9 @@ import app.toque.core.robot.DeviceFacts
 import app.toque.core.robot.RobotDetector
 import app.toque.core.robot.RobotProfile
 import app.toque.core.robot.RobotProfiles
-import app.toque.recipes.LidlSync
-import app.toque.recipes.SyncService
+import app.toque.recipes.VendorApp
 import app.toque.ui.screens.HomeScreen
+import app.toque.ui.screens.RecipeScreen
 import app.toque.ui.screens.KnobSetupScreen
 import app.toque.ui.screens.SettingsScreen
 import app.toque.ui.screens.SiteLinkScreen
@@ -117,7 +117,8 @@ class MainActivity : Activity() {
 
         app.machine.connect()
         app.recipes.load()
-        SyncService.schedule(this)
+        // Recettes, état en temps réel et repas du foyer : seulement depuis Claudimix.
+        app.claudimix.start()
         push(HomeScreen(this))
         if (reopenSettings) {
             reopenSettings = false
@@ -218,7 +219,7 @@ class MainActivity : Activity() {
         Thread {
             val problems = ArrayList<String>()
             if (!RootShell.available()) problems += tr("accès root refusé")
-            val sync = LidlSync(this, prefs, app.recipes, app.log)
+            val sync = VendorApp(this, prefs, app.log)
             if (problems.isEmpty() && sync.installed()) {
                 if (sync.components().hardwareService != null && !sync.setVendorHardware(false))
                     problems += tr("impossible de couper l'appli d'origine du moteur")
@@ -250,12 +251,10 @@ class MainActivity : Activity() {
         ensureHardware()
         app.recipes.load()
         refreshTitle()
-        // Les Réglages ouverts montrent des choses propres au robot (recettes Lidl, import) : on les refait.
+        // Les Réglages ouverts montrent des choses propres au robot : on les refait.
         if (current is SettingsScreen && before !== p) replace(SettingsScreen(this))
         val msg = if (!p.tested) tr("%s : en test. Vos retours sont attendus sur GitHub.", p.displayName) else tr("Robot : %s", p.displayName)
         toast(msg, if (p.tested) Ui.OK else Ui.WARN)
-        if (before != null && before.lidlDevice != p.lidlDevice && app.recipes.count > 0)
-            toast(tr("Synchronisez les recettes Lidl pour avoir celles de ce robot."), Ui.WARN)
     }
 
     /**
@@ -295,6 +294,8 @@ class MainActivity : Activity() {
             standby.onSnapshot(s)
         }
         unsubscribeEvents = app.machine.onEvent { e -> onMachineEvent(e) }
+        // « Envoyer au robot » depuis l'appli Claudimix : la fiche de la recette s'ouvre ici.
+        app.claudimix.onOpenRecipe = { id -> openRecipeFromClaudimix(id) }
         topBar.startClock()
         standby.start()
         updates.onStart()
@@ -311,6 +312,7 @@ class MainActivity : Activity() {
     override fun onStop() {
         unsubscribe?.invoke()
         unsubscribeEvents?.invoke()
+        app.claudimix.onOpenRecipe = null
         topBar.stopClock()
         standby.stop()
         updates.onStop()
@@ -648,20 +650,25 @@ class MainActivity : Activity() {
 
     // ------------------------------------------------------------------ appli d'origine
 
-    /** Retour depuis l'appli d'origine : on la coupe du moteur, on reprend la main, on importe. */
+    /** Retour depuis l'appli d'origine : on la coupe du moteur et on reprend la main. */
     private fun endVendorSession() {
         prefs.vendorSession = false
         toast(tr("Reprise de la main sur le robot…"))
         Thread {
-            val sync = LidlSync(this, prefs, app.recipes, app.log)
-            sync.forceStop()
-            sync.setVendorHardware(false)
+            val vendor = VendorApp(this, prefs, app.log)
+            vendor.forceStop()
+            vendor.setVendorHardware(false)
             main.post { machine.resumePort() }
-            // Base de l'appli d'origine : copiée seulement quand son format est connu (Connect).
-            if (!prefs.robot.stockImport) return@Thread
-            val r = sync.importNow()
-            main.post { toast(r.message, if (r.ok) Ui.OK else Ui.WARN) }
         }.start()
+    }
+
+    /** Commande « open_recipe » de Claudimix : la fiche de la recette, par-dessus l'écran en cours. */
+    private fun openRecipeFromClaudimix(id: String) {
+        val r = app.recipes.get(id) ?: return
+        standby.poke()
+        if (overlayShown) closeOverlay()
+        if ((current as? RecipeScreen)?.recipe?.id == id) return
+        push(RecipeScreen(this, r))
     }
 
     fun openVendorApp() {
@@ -671,8 +678,8 @@ class MainActivity : Activity() {
         }
         confirm(
             tr("Ouvrir l'appli d'origine"),
-            tr("Toque libère le moteur et lance l'appli Monsieur Cuisine d'origine, qui se synchronise avec les serveurs Lidl comme d'habitude.\n\n" +
-                "Revenez ensuite à Toque avec le bouton « Retour à Toque » affiché par-dessus (vous pouvez le déplacer) : les recettes seront importées automatiquement."),
+            tr("Toque libère le moteur et lance l'appli Monsieur Cuisine d'origine.\n\n" +
+                "Revenez ensuite à Toque avec le bouton « Retour à Toque » affiché par-dessus (vous pouvez le déplacer)."),
             tr("Ouvrir"), icon = Icon.Kind.SYNC,
         ) {
             machine.suspendPort { v ->
@@ -686,7 +693,7 @@ class MainActivity : Activity() {
                         }
                         return@Thread
                     }
-                    val sync = LidlSync(this, prefs, app.recipes, app.log)
+                    val sync = VendorApp(this, prefs, app.log)
                     val enabled = sync.setVendorHardware(true)
                     val launch = sync.components().launch
                     main.post {
