@@ -37,11 +37,6 @@ class SettingsScreen(a: MainActivity) : Screen(a) {
     private lateinit var timeText: TextView
     private var settingTime = false
 
-    private lateinit var accountText: TextView
-    private lateinit var accountButtons: LinearLayout
-    private lateinit var siteText: TextView
-    private lateinit var siteBtn: View
-
     override fun build(): View {
         val col = Ui.vertical(c)
         col.setPadding(Ui.u(24), Ui.u(6), Ui.u(24), Ui.u(24))
@@ -52,11 +47,8 @@ class SettingsScreen(a: MainActivity) : Screen(a) {
         columns.addView(right, LinearLayout.LayoutParams(0, Ui.WRAP, 1f))
         col.addView(columns)
 
-        // ---- Robot (fiche : protocole, programmes, recettes montrées)
-        val robot = section(left, tr("Robot"), Icon.Kind.POT)
-        robotText = Ui.text(c, "", 18f, Ui.TEXT).apply { setLineSpacing(0f, 1.15f) }
-        robot.addView(robotText, Ui.lp(t = 4))
-        renderRobot()
+        // Deux colonnes : à gauche les recettes (Lidl, les miennes), à droite l'appareil (langue,
+        // écran, heure, outils).
 
         // ---- Langue (titre bilingue : trouvable quelle que soit la langue affichée)
         val language = section(right, "Langue · Language", Icon.Kind.INFO)
@@ -95,7 +87,7 @@ class SettingsScreen(a: MainActivity) : Screen(a) {
         refreshTime()
 
         // ---- Recettes Lidl
-        val lidl = section(right, tr("Recettes Lidl"), Icon.Kind.SYNC)
+        val lidl = section(left, tr("Recettes Lidl"), Icon.Kind.SYNC)
         val chosen = a.prefs.robot
         val lidlIntro = if (chosen.lidlDevice == "MC2.0") tr("Toque télécharge lui-même les recettes officielles du Monsieur Cuisine connect sur monsieur-cuisine.com (sans compte).")
             else tr("Toque télécharge lui-même les recettes officielles du %s sur monsieur-cuisine.com (sans compte).", chosen.displayName)
@@ -149,35 +141,13 @@ class SettingsScreen(a: MainActivity) : Screen(a) {
             14f, Ui.TEXT3).apply { setLineSpacing(0f, 1.1f) }, Ui.lp(t = 6))
 
         // ---- Mes recettes
-        val mine = section(right, tr("Mes recettes"), Icon.Kind.EDIT)
+        val mine = section(left, tr("Mes recettes"), Icon.Kind.EDIT)
         mine.addView(Ui.text(c, tr("Sauvegardez vos recettes, ou passez-les à un autre robot, avec le fichier %s du dossier Download.", UserRecipes.FILE_NAME),
             16f, Ui.TEXT2).apply { setLineSpacing(0f, 1.15f) })
         val files = Ui.horizontal(c)
         files.addView(Ui.button(c, tr("Exporter"), Ui.Style.SECONDARY, Icon.Kind.UPLOAD, height = 52) { recipeFiles(export = true) }, Ui.lp(Ui.WRAP, Ui.WRAP, r = 10))
         files.addView(Ui.button(c, tr("Importer"), Ui.Style.SECONDARY, Icon.Kind.DOWNLOAD, height = 52) { recipeFiles(export = false) })
         mine.addView(files, Ui.lp(t = 12))
-
-        // ---- Compte Toque (toqueapp.org), facultatif
-        val account = section(left, tr("Compte Toque"), Icon.Kind.PEOPLE)
-        accountText = Ui.text(c, "", 16f, Ui.TEXT2).apply { setLineSpacing(0f, 1.15f) }
-        account.addView(accountText)
-        accountButtons = Ui.horizontal(c)
-        account.addView(accountButtons, Ui.lp(t = 12))
-
-        // ---- Recettes de la communauté (toqueapp.org), sans compte
-        val community = section(left, tr("Recettes de la communauté"), Icon.Kind.GLOBE)
-        community.addView(Ui.text(c, tr("Les recettes partagées sur toqueapp.org, reçues sans compte. Celles que la communauté a traduites arrivent dans votre langue."),
-            16f, Ui.TEXT2).apply { setLineSpacing(0f, 1.15f) })
-        community.addView(toggle(tr("Recevoir les recettes de la communauté"), a.prefs.siteCommunity) { on ->
-            a.app.site.setCommunity(on)
-            refreshSite()
-        }, Ui.lp(t = 10))
-        siteText = Ui.text(c, "", 16f, Ui.TEXT)
-        community.addView(siteText, Ui.lp(t = 10))
-        siteBtn = Ui.button(c, tr("Synchroniser"), Ui.Style.SECONDARY, Icon.Kind.SYNC, height = 52) {
-            a.app.site.sync { r -> r?.let { a.toast(it.message, if (it.ok) Ui.OK else Ui.WARN) } }
-        }
-        community.addView(siteBtn, Ui.lp(Ui.WRAP, Ui.WRAP, t = 12))
 
         // ---- Outils
         val tools = section(right, tr("Outils"), Icon.Kind.SETTINGS)
@@ -313,15 +283,6 @@ class SettingsScreen(a: MainActivity) : Screen(a) {
         return box
     }
 
-    private lateinit var robotText: TextView
-
-    private fun renderRobot() {
-        val p = a.prefs.robot
-        robotText.text = if (!a.prefs.robotConfirmed) tr("Pas encore choisi : la liaison avec la base reste fermée en « Machine réelle ».")
-            else p.displayName + " (" + p.models.joinToString(", ") + ")" + if (p.tested) "" else
-                "\n" + tr("En test : le projet ne l'a pas essayé lui-même, vos retours sont attendus sur GitHub.")
-    }
-
     private fun restoreVendor() {
         a.confirm(
             tr("Revenir à l'appli d'origine"),
@@ -437,55 +398,15 @@ class SettingsScreen(a: MainActivity) : Screen(a) {
         if (lang.isEmpty() || lang == I18n.code || ms <= 0) text
         else java.text.SimpleDateFormat(tr("dd/MM à HH:mm"), I18n.locale).format(java.util.Date(ms))
 
-    // ------------------------------------------------------------------ toqueapp.org
-
-    private fun renderAccount() {
-        accountButtons.removeAllViews()
-        val prefs = a.prefs
-        if (prefs.siteLinked) {
-            accountText.text = tr("Relié au compte « %s ». Vos favoris du site arrivent sur le robot, et vous pouvez publier vos recettes.", prefs.siteUser)
-            accountButtons.addView(Ui.button(c, tr("Délier"), Ui.Style.GHOST, Icon.Kind.CLOSE, height = 52) {
-                a.confirm(tr("Délier le robot ?"), tr("Le robot ne recevra plus vos favoris du site. Les recettes déjà reçues restent."), tr("Délier")) {
-                    a.app.site.unlink()
-                    a.toast(tr("Robot délié du compte"))
-                }
-            })
-        } else {
-            accountText.text = tr("Aucun compte relié. Le compte est facultatif : relié, le robot reçoit vos favoris du site et vous pouvez publier vos recettes depuis le robot.")
-            accountButtons.addView(Ui.button(c, tr("Relier mon compte"), Ui.Style.PRIMARY, Icon.Kind.LINK, height = 52) { a.push(SiteLinkScreen(a)) })
-        }
-    }
-
-    private fun refreshSite() {
-        val site = a.app.site
-        val prefs = a.prefs
-        val on = prefs.siteCommunity || prefs.siteLinked
-        Ui.setButtonEnabled(siteBtn, on && !site.busy)
-        val last = prefs.siteLastResult
-        val first = when {
-            site.busy -> tr("Synchronisation en cours…")
-            last.isEmpty() -> tr("Jamais synchronisé")
-            else -> tr("Dernière synchro le %s", lastLine(last, prefs.siteLastLang, prefs.siteLastMs))
-        }
-        val repo = a.app.recipes
-        val n = if (repo.loaded) repo.index.entries.count { CommunityRecipes.isCommunity(it.id) } else 0
-        siteText.text = first + if (repo.loaded) "\n" + tr("%d recettes de la communauté dans Toque", n) else ""
-    }
-
     /** Désabonnement du suivi des recettes (le nombre s'affiche une fois la base chargée). */
     private var unsubRecipes: (() -> Unit)? = null
     private var unsubSync: (() -> Unit)? = null
-    private var unsubSite: (() -> Unit)? = null
 
     override fun onShow() {
-        renderRobot()
         refreshSync()
-        renderAccount()
-        refreshSite()
-        // Changement de robot : les recettes sont refiltrées, puis cet écran se met à jour.
-        unsubRecipes = a.app.recipes.onChange { renderRobot(); refreshSync(); refreshSite() }
+        // Recettes rechargées (synchro, import) : le nombre affiché se met à jour.
+        unsubRecipes = a.app.recipes.onChange { refreshSync() }
         unsubSync = SyncProgress.onChange { refreshSync() }
-        unsubSite = a.app.site.onChange { renderAccount(); refreshSite() }
     }
 
     override fun onHide() {
@@ -493,8 +414,6 @@ class SettingsScreen(a: MainActivity) : Screen(a) {
         unsubRecipes = null
         unsubSync?.invoke()
         unsubSync = null
-        unsubSite?.invoke()
-        unsubSite = null
     }
 
 }
