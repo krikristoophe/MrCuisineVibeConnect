@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-"""Génère un fichier SQL d'import des recettes à partir de la base du robot (recettes.db).
+"""Génère un fichier SQL d'import des recettes : base du robot (recettes.db) ou export JSONL du
+catalogue (android/core/src/test/.../CatalogExport.kt, une recette par ligne).
 
-Usage : python3 -I scripts/import_robot_db.py <recettes.db> <sortie.sql>
+Usage : python3 -I scripts/import_robot_db.py <recettes.db | catalogue.jsonl> <sortie.sql>
 puis    npx wrangler d1 execute claudimix --remote --file <sortie.sql>
 
 Les recettes déjà présentes ne sont pas écrasées (INSERT OR IGNORE) : les modifications faites
@@ -20,21 +21,31 @@ def q(v):
     return "'" + str(v).replace("'", "''") + "'"
 
 src, out = sys.argv[1], sys.argv[2]
-db = sqlite3.connect(src)
+
+def rows():
+    if src.endswith(".jsonl"):
+        with open(src, encoding="utf-8") as f:
+            for line in f:
+                if line.strip():
+                    yield (line,)
+    else:
+        yield from sqlite3.connect(src).execute("SELECT json FROM recipes")
+
 now = int(time.time() * 1000)
 n = 0
 with open(out, "w", encoding="utf-8") as f:
-    for (raw,) in db.execute("SELECT json FROM recipes"):
+    for (raw,) in rows():
         r = json.loads(raw)
         if not r.get("id") or not r.get("title"):
             continue
         ing = " ".join(i.get("name", "") for g in r.get("ingredients", []) for i in g.get("items", []))
         search = fold(" ".join([r["title"], r.get("category", ""), " ".join(r.get("tags", [])), ing]))
-        uses = 1 if any(s.get("machine") for s in r.get("steps", [])) else 0
+        devices = [d for d in r.get("devices", []) if isinstance(d, str)]
+        uses = 1 if any(s.get("machine") for s in r.get("steps", [])) and (not devices or "MC2.0" in devices) else 0
         r.pop("favorite", None)
         vals = [r["id"], r["title"], search, r.get("category", ""), r.get("image"), int(r.get("totalMinutes") or 0),
-                float(r.get("rating") or 0), int(r.get("ratingCount") or 0), uses, json.dumps(r, ensure_ascii=False), now]
-        f.write("INSERT OR IGNORE INTO recipes (id, title, search, category, image, total_minutes, rating, rating_count, uses_robot, json, updated_at) VALUES ("
+                float(r.get("rating") or 0), int(r.get("ratingCount") or 0), uses, ",".join(devices), json.dumps(r, ensure_ascii=False), now]
+        f.write("INSERT OR IGNORE INTO recipes (id, title, search, category, image, total_minutes, rating, rating_count, uses_robot, devices, json, updated_at) VALUES ("
                 + ", ".join(q(v) for v in vals) + ");\n")
         n += 1
 print(f"{n} recettes -> {out}")

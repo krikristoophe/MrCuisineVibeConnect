@@ -7,6 +7,7 @@ import { requireUser } from "./auth";
 import { notifyHousehold } from "./push";
 import { addDays, humanCode, now, parisDay, randomId, sha256 } from "./util";
 import { mealsBetween } from "./week";
+import { OUR_DEVICE } from "./recipes";
 
 /** État envoyé par le robot (voir web/API-ROBOT.md). */
 export interface RobotState {
@@ -126,12 +127,15 @@ robotApi.get("/recipes", async (c) => {
   if (!robot) return c.json({ error: "robot inconnu" }, 401);
   const since = Number(c.req.query("since") ?? 0);
   const limit = Math.min(Number(c.req.query("limit") ?? 200), 500);
-  const rows = await c.env.DB.prepare("SELECT id, json, updated_at, deleted FROM recipes WHERE updated_at > ? ORDER BY updated_at, id LIMIT ?")
-    .bind(since, limit).all<{ id: string; json: string; updated_at: number; deleted: number }>();
+  // Seulement les recettes faisables sur ce robot (Connect) ; les autres comptent comme supprimées.
+  const device = c.req.query("device") ?? OUR_DEVICE;
+  const rows = await c.env.DB.prepare("SELECT id, json, updated_at, deleted, devices FROM recipes WHERE updated_at > ? ORDER BY updated_at, id LIMIT ?")
+    .bind(since, limit).all<{ id: string; json: string; updated_at: number; deleted: number; devices: string }>();
   const list = rows.results;
+  const ok = (r: { deleted: number; devices: string }) => !r.deleted && (r.devices === "" || r.devices.split(",").includes(device));
   return c.json({
-    recipes: list.filter((r) => !r.deleted).map((r) => JSON.parse(r.json)),
-    deleted: list.filter((r) => r.deleted).map((r) => r.id),
+    recipes: list.filter(ok).map((r) => JSON.parse(r.json)),
+    deleted: list.filter((r) => !ok(r)).map((r) => r.id),
     next: list.length === limit ? list[list.length - 1].updated_at : null,
     until: list.length ? list[list.length - 1].updated_at : since,
   });

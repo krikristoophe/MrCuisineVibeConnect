@@ -36,21 +36,30 @@ export function searchText(r: RecipeJson): string {
   return fold([r.title, r.category ?? "", (r.tags ?? []).join(" "), ing].join(" "));
 }
 
+/** Robot de la maison : Monsieur Cuisine Connect. */
+export const OUR_DEVICE = "MC2.0";
+
+export function devices(r: RecipeJson): string[] {
+  return Array.isArray(r.devices) ? (r.devices as string[]) : [];
+}
+
+/** Recette faisable au robot : des étapes avec réglages, et compatible avec le Connect. */
 export function usesRobot(r: RecipeJson): boolean {
-  return (r.steps ?? []).some((s) => !!s.machine);
+  const d = devices(r);
+  return (r.steps ?? []).some((s) => !!s.machine) && (d.length === 0 || d.includes(OUR_DEVICE));
 }
 
 /** Écrit une recette (création ou modification) avec ses colonnes de recherche. */
 export async function saveRecipe(env: Env, r: RecipeJson): Promise<void> {
   if (!r.id || !r.title) throw new Error("id et title obligatoires");
   await env.DB.prepare(
-    `INSERT INTO recipes (id, title, search, category, image, total_minutes, rating, rating_count, uses_robot, json, updated_at, deleted)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
+    `INSERT INTO recipes (id, title, search, category, image, total_minutes, rating, rating_count, uses_robot, devices, json, updated_at, deleted)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
      ON CONFLICT (id) DO UPDATE SET title = excluded.title, search = excluded.search, category = excluded.category, image = excluded.image,
-       total_minutes = excluded.total_minutes, rating = excluded.rating, rating_count = excluded.rating_count, uses_robot = excluded.uses_robot,
+       total_minutes = excluded.total_minutes, rating = excluded.rating, rating_count = excluded.rating_count, uses_robot = excluded.uses_robot, devices = excluded.devices,
        json = excluded.json, updated_at = excluded.updated_at, deleted = 0`
   ).bind(r.id, r.title, searchText(r), r.category ?? "", r.image ?? null, r.totalMinutes ?? 0, r.rating ?? 0, r.ratingCount ?? 0,
-    usesRobot(r) ? 1 : 0, JSON.stringify(r), now()).run();
+    usesRobot(r) ? 1 : 0, devices(r).join(","), JSON.stringify(r), now()).run();
 }
 
 export async function getRecipe(env: Env, id: string): Promise<RecipeJson | null> {
