@@ -687,5 +687,6 @@
   "Poids du bol vide mémorisé : %d g": "Empty bowl weight remembered: %d g",
   "Bol retiré": "Bowl removed",
   "Octets 12-13": "Bytes 12-13",
-  "(rôle inconnu)": "(unknown role)"
+  "(rôle inconnu)": "(unknown role)",
+  "Écran et langue": "Display and language"
 }

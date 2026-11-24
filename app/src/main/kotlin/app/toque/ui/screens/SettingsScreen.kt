@@ -14,6 +14,7 @@ import app.toque.Prefs
 import app.toque.TimeSync
 import app.toque.core.i18n.I18n
 import app.toque.core.i18n.tr
+import app.toque.core.i18n.trKey
 import app.toque.core.time.ZoneLookup
 import app.toque.recipes.LidlSync
 import app.toque.core.recipes.McOnline
@@ -28,6 +29,11 @@ import app.toque.ui.Screen
 import app.toque.ui.Ui
 
 class SettingsScreen(a: MainActivity) : Screen(a) {
+    private companion object {
+        /** Rubrique ouverte : gardée quand les réglages sont reconstruits (changement de langue). */
+        var lastTab = Tab.RECIPES
+    }
+
     override val title = tr("Réglages")
     private lateinit var syncText: TextView
     private lateinit var syncBtn: View
@@ -37,21 +43,51 @@ class SettingsScreen(a: MainActivity) : Screen(a) {
     private lateinit var timeText: TextView
     private var settingTime = false
 
-    override fun build(): View {
-        val col = Ui.vertical(c)
-        col.setPadding(Ui.u(24), Ui.u(6), Ui.u(24), Ui.u(24))
-        val columns = Ui.horizontal(c, Gravity.TOP)
-        val left = Ui.vertical(c)
-        val right = Ui.vertical(c)
-        columns.addView(left, LinearLayout.LayoutParams(0, Ui.WRAP, 1f).apply { rightMargin = Ui.u(18) })
-        columns.addView(right, LinearLayout.LayoutParams(0, Ui.WRAP, 1f))
-        col.addView(columns)
+    /** Rubriques du menu latéral : une seule est affichée à droite, sans défilement de toute la page. */
+    private enum class Tab(val fr: String, val icon: Icon.Kind) {
+        RECIPES(trKey("Recettes"), Icon.Kind.BOOK),
+        DISPLAY(trKey("Écran et langue"), Icon.Kind.GLOBE),
+        TIME(trKey("Date et heure"), Icon.Kind.CLOCK),
+        TOOLS(trKey("Outils"), Icon.Kind.SETTINGS),
+    }
 
-        // Deux colonnes : à gauche les recettes (Lidl, les miennes), à droite l'appareil (langue,
-        // écran, heure, outils).
+    private val pages = HashMap<Tab, LinearLayout>()
+    private val navRows = HashMap<Tab, LinearLayout>()
+    private lateinit var pageScroll: ScrollView
+
+    override fun build(): View {
+        // Menu à gauche, posé sur le fond (comme la page Recettes) ; contenu à droite dans une carte.
+        val root = Ui.horizontal(c, Gravity.TOP)
+        root.setPadding(Ui.u(24), Ui.u(6), Ui.u(24), Ui.u(24))
+        val nav = Ui.vertical(c)
+        root.addView(nav, LinearLayout.LayoutParams(Ui.u(250), Ui.MATCH).apply { rightMargin = Ui.u(18) })
+        val card = Ui.card(c, 24f)
+        card.setPadding(Ui.u(28), Ui.u(22), Ui.u(28), Ui.u(10))
+        val pane = Ui.vertical(c)
+        pageScroll = Ui.scroll(c, pane)
+        card.addView(pageScroll, Ui.lp(Ui.MATCH, Ui.MATCH))
+        root.addView(card, LinearLayout.LayoutParams(0, Ui.MATCH, 1f))
+        for (t in Tab.values()) {
+            val page = Ui.vertical(c)
+            page.setPadding(0, 0, 0, Ui.u(18))
+            pane.addView(page, Ui.lp())
+            pages[t] = page
+            val row = Ui.horizontal(c)
+            row.setPadding(Ui.u(18), 0, Ui.u(18), 0)
+            row.addView(Icon(c, t.icon, Ui.ACCENT), LinearLayout.LayoutParams(Ui.u(26), Ui.u(26)).apply { rightMargin = Ui.u(14) })
+            row.addView(Ui.text(c, tr(t.fr), 19f, Ui.TEXT, Ui.MEDIUM))
+            row.isClickable = true
+            row.setOnClickListener { show(t) }
+            nav.addView(row, Ui.lp(Ui.MATCH, Ui.u(64), b = 6))
+            navRows[t] = row
+        }
+        val recipesPage = pages.getValue(Tab.RECIPES)
+        val displayPage = pages.getValue(Tab.DISPLAY)
+        val timePage = pages.getValue(Tab.TIME)
+        val toolsPage = pages.getValue(Tab.TOOLS)
 
         // ---- Langue (titre bilingue : trouvable quelle que soit la langue affichée)
-        val language = section(right, "Langue · Language", Icon.Kind.INFO)
+        val language = section(displayPage, "Langue · Language", Icon.Kind.GLOBE)
         val options = listOf(I18n.AUTO to tr("Automatique (langue du système)")) + I18n.languages.map { it.code to it.name }
         language.addView(dropdown(options, a.prefs.language) { code ->
             a.prefs.language = code
@@ -59,7 +95,7 @@ class SettingsScreen(a: MainActivity) : Screen(a) {
         }, Ui.lp(Ui.MATCH, Ui.u(58), t = 4))
 
         // ---- Écran
-        val screen = section(right, tr("Écran"), Icon.Kind.CLOCK)
+        val screen = section(displayPage, tr("Écran"), Icon.Kind.CLOCK, divider = true)
         val delays = listOf("0" to tr("Jamais")) + listOf(2, 5, 10, 15, 30).map { it.toString() to tr("Après %d min", it) }
         screen.addView(Ui.text(c, tr("Mise en veille"), 18f, Ui.TEXT))
         screen.addView(dropdown(delays, a.prefs.standbyMinutes.toString()) { m -> a.prefs.standbyMinutes = m.toInt() },
@@ -72,7 +108,7 @@ class SettingsScreen(a: MainActivity) : Screen(a) {
             Ui.lp(Ui.MATCH, Ui.u(58), t = 8))
 
         // ---- Date et heure
-        val time = section(right, tr("Date et heure"), Icon.Kind.CLOCK)
+        val time = section(timePage, tr("Date et heure"), Icon.Kind.CLOCK)
         val zones = listOf(ZoneLookup.AUTO to tr("Automatique (d'après la connexion Internet)")) +
             (ZoneLookup.COMMON + listOf(TimeSync.current(), a.prefs.timeZone))
                 .filter { it != ZoneLookup.AUTO }.distinct().map { it to it.replace('_', ' ') }
@@ -87,7 +123,7 @@ class SettingsScreen(a: MainActivity) : Screen(a) {
         refreshTime()
 
         // ---- Recettes Lidl
-        val lidl = section(left, tr("Recettes Lidl"), Icon.Kind.SYNC)
+        val lidl = section(recipesPage, tr("Recettes Lidl"), Icon.Kind.SYNC)
         val chosen = a.prefs.robot
         val lidlIntro = if (chosen.lidlDevice == "MC2.0") tr("Toque télécharge lui-même les recettes officielles du Monsieur Cuisine connect sur monsieur-cuisine.com (sans compte).")
             else tr("Toque télécharge lui-même les recettes officielles du %s sur monsieur-cuisine.com (sans compte).", chosen.displayName)
@@ -141,7 +177,7 @@ class SettingsScreen(a: MainActivity) : Screen(a) {
             14f, Ui.TEXT3).apply { setLineSpacing(0f, 1.1f) }, Ui.lp(t = 6))
 
         // ---- Mes recettes
-        val mine = section(left, tr("Mes recettes"), Icon.Kind.EDIT)
+        val mine = section(recipesPage, tr("Mes recettes"), Icon.Kind.EDIT, divider = true)
         mine.addView(Ui.text(c, tr("Sauvegardez vos recettes, ou passez-les à un autre robot, avec le fichier %s du dossier Download.", UserRecipes.FILE_NAME),
             16f, Ui.TEXT2).apply { setLineSpacing(0f, 1.15f) })
         val files = Ui.horizontal(c)
@@ -150,7 +186,7 @@ class SettingsScreen(a: MainActivity) : Screen(a) {
         mine.addView(files, Ui.lp(t = 12))
 
         // ---- Outils
-        val tools = section(right, tr("Outils"), Icon.Kind.SETTINGS)
+        val tools = section(toolsPage, tr("Outils"), Icon.Kind.SETTINGS)
         tools.addView(link(tr("Diagnostic de la base moteur")) { a.push(DiagnosticsScreen(a)) })
         tools.addView(link(tr("Bouton rotatif")) { a.push(KnobScreen(a)) })
         tools.addView(link(tr("Journal")) { a.push(LogScreen(a)) })
@@ -164,17 +200,28 @@ class SettingsScreen(a: MainActivity) : Screen(a) {
                 .apply { setLineSpacing(0f, 1.1f) }, Ui.lp(t = 4))
         } }
 
-        return Ui.scroll(c, col)
+        show(lastTab)
+        return root
     }
 
-    private fun section(parent: LinearLayout, title: String, icon: Icon.Kind): LinearLayout {
-        val card = Ui.card(c, 24f)
+    /** Affiche une rubrique : sa page à droite, sa ligne surlignée dans le menu. */
+    private fun show(t: Tab) {
+        lastTab = t
+        for ((k, page) in pages) page.visibility = if (k == t) View.VISIBLE else View.GONE
+        for ((k, row) in navRows) row.background = Ui.pressable(Ui.round(if (k == t) Ui.ACCENT_DIM else 0, 18f), 18f)
+        pageScroll.scrollTo(0, 0)
+    }
+
+    /** Un groupe de réglages dans la page : titre et contenu, séparé du précédent par un filet. */
+    private fun section(parent: LinearLayout, title: String, icon: Icon.Kind, divider: Boolean = false): LinearLayout {
+        if (divider) parent.addView(View(c).apply { setBackgroundColor(Ui.SURFACE2) }, Ui.lp(Ui.MATCH, Ui.u(1), t = 18, b = 18))
+        val group = Ui.vertical(c)
         val head = Ui.horizontal(c)
         head.addView(Icon(c, icon, Ui.ACCENT), LinearLayout.LayoutParams(Ui.u(24), Ui.u(24)).apply { rightMargin = Ui.u(10) })
         head.addView(Ui.text(c, title, 21f, Ui.TEXT, Ui.MEDIUM))
-        card.addView(head, Ui.lp(b = 10))
-        parent.addView(card, Ui.lp(b = 16))
-        return card
+        group.addView(head, Ui.lp(b = 10))
+        parent.addView(group, Ui.lp())
+        return group
     }
 
     private fun toggle(label: String, initial: Boolean, onChange: (Boolean) -> Unit): LinearLayout {
