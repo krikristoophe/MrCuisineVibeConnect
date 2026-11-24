@@ -386,7 +386,7 @@ class MainActivity : Activity() {
 
     private fun showTitle(t: String) {
         titleView.text = t
-        titleView.visibility = if (stack.size > 1) View.VISIBLE else View.GONE
+        titleView.visibility = if (stack.size > 1 && current?.showsTitle != false) View.VISIBLE else View.GONE
         topBar.setStack(stack)
     }
 

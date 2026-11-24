@@ -38,6 +38,8 @@ abstract class Screen(val a: MainActivity) {
     open fun canLeave(proceed: () -> Unit): Boolean = true
     /** Empêche la mise en veille tant que cet écran est affiché (balance). */
     open val keepAwake: Boolean get() = false
+    /** Titre affiché au-dessus du contenu (faux : l'écran s'en passe, sa rubrique se voit dans le menu). */
+    open val showsTitle: Boolean get() = true
 }
 
 /** Barre supérieure : retour, titre, état de la base, heure. */

@@ -45,6 +45,8 @@ class RecipesScreen(
     /** Listes tirées des cuissons : dernières recettes cuisinées, ou les plus cuisinées. */
     enum class Usage { NONE, RECENT, MOST }
 
+    // Pas de titre au-dessus de la liste : la rubrique Recettes est surlignée dans le menu.
+    override val showsTitle: Boolean get() = false
     override val title = when {
         favorites -> tr("Favoris")
         initialUsage == Usage.RECENT -> tr("Récentes")
@@ -70,7 +72,7 @@ class RecipesScreen(
 
     override fun build(): View {
         val root = Ui.vertical(c)
-        root.setPadding(Ui.u(24), Ui.u(6), Ui.u(24), 0)
+        root.setPadding(Ui.u(18), Ui.u(20), Ui.u(30), 0)   // pas de titre au-dessus : marge du haut
 
         val bar = Ui.horizontal(c)
         val field = Ui.horizontal(c)

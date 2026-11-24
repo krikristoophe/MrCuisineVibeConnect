@@ -41,6 +41,8 @@ class ManualScreen(
     private val onPick: ((app.toque.core.recipes.StepMachine) -> Unit)? = null,
 ) : Screen(a) {
     override val title = if (onPick != null) tr("Réglage de l'étape") else JobKind.MANUAL.label
+    // Titre seulement pour régler une étape de recette ; la cuisson manuelle se reconnaît au menu.
+    override val showsTitle: Boolean get() = onPick != null
 
     private var seconds = preset?.seconds?.takeIf { it > 0 } ?: 60
     /** Températures du robot choisi (le Smart a 40 °C en plus) ; 0 = sans chauffe. */
@@ -80,7 +82,7 @@ class ManualScreen(
 
     override fun build(): View {
         val root = Ui.horizontal(c, Gravity.TOP)
-        root.setPadding(Ui.u(24), Ui.u(8), Ui.u(24), Ui.u(20))
+        root.setPadding(Ui.u(18), Ui.u(if (onPick != null) 8 else 20), Ui.u(30), Ui.u(20))
         val left = Ui.vertical(c)
         val cards = Ui.horizontal(c)
         timeCard = ValueCard(c, tr("Durée"), Icon.Kind.CLOCK)

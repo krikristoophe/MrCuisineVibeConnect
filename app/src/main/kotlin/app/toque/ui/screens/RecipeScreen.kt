@@ -41,6 +41,8 @@ import app.toque.ui.Ui
  */
 class RecipeScreen(a: MainActivity, val recipe: Recipe) : Screen(a) {
     override val title = recipe.title
+    // Le titre est sous la photo, dans la colonne de gauche.
+    override val showsTitle: Boolean get() = false
     private lateinit var favIcon: Icon
     private lateinit var favLabel: TextView
     // Ce fork n'adapte plus les recettes (portions, quantités) : elles s'affichent et se cuisinent
@@ -64,7 +66,7 @@ class RecipeScreen(a: MainActivity, val recipe: Recipe) : Screen(a) {
 
     override fun build(): View {
         val root = Ui.horizontal(c, Gravity.TOP)
-        root.setPadding(Ui.u(24), Ui.u(6), Ui.u(24), Ui.u(18))
+        root.setPadding(Ui.u(18), Ui.u(20), Ui.u(30), Ui.u(18))
 
         // ---- colonne gauche : photo, durée et note, portions, catégorie et tags, Cuisiner / Favori
         val left = Ui.vertical(c)
@@ -79,7 +81,8 @@ class RecipeScreen(a: MainActivity, val recipe: Recipe) : Screen(a) {
                 outline.setRoundRect(0, 0, view.width, view.height, Ui.uf(24f))
         }
         ImageLoader.load(img, a.app.recipes.imageFile(recipe.image), Ui.u(420))
-        left.addView(header, LinearLayout.LayoutParams(Ui.MATCH, Ui.u(230)))
+        left.addView(header, LinearLayout.LayoutParams(Ui.MATCH, Ui.u(200)))
+        left.addView(Ui.ellipsize(Ui.text(c, recipe.title, 23f, Ui.TEXT, Ui.MEDIUM).apply { setLineSpacing(0f, 1.05f) }, 2), Ui.lp(t = 12))
 
         val meta = Ui.horizontal(c)
         if (recipe.totalMinutes > 0) meta.addView(Ui.chip(c, Ui.minutes(recipe.totalMinutes), Icon.Kind.CLOCK), Ui.lp(Ui.WRAP, Ui.WRAP, r = 8))
