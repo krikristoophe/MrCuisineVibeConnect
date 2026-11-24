@@ -146,27 +146,6 @@ class Prefs(context: Context) {
             p.edit().putString("lastZone", v).commit()
         }
 
-    var autoSync: Boolean
-        get() = p.getBoolean("autoSync", true)
-        set(v) {
-            p.edit().putBoolean("autoSync", v).commit()
-        }
-
-    var lastSyncMs: Long
-        get() = p.getLong("lastSyncMs", 0)
-        set(v) {
-            p.edit().putLong("lastSyncMs", v).commit()
-        }
-
-    /** Résultat de la dernière synchro, écrit dans la langue d'alors (lastSyncLang). */
-    var lastSyncResult: String
-        get() = p.getString("lastSyncResult", "") ?: ""
-        set(v) {
-            p.edit().putString("lastSyncResult", v).putString("lastSyncLang", I18n.code).commit()
-        }
-
-    val lastSyncLang: String get() = p.getString("lastSyncLang", "") ?: ""
-
     var vendorSession: Boolean
         get() = p.getBoolean("vendorSession", false)
         set(v) {
@@ -286,23 +265,6 @@ class Prefs(context: Context) {
             p.edit().putLong("updateAskedMs", v).commit()
         }
 
-    /** Ajouter les recettes en ligne publiées seulement dans une autre langue. */
-    var foreignRecipes: Boolean
-        get() = p.getBoolean("foreignRecipes", false)
-        set(v) {
-            p.edit().putBoolean("foreignRecipes", v).commit()
-        }
-
-    /**
-     * Langue du catalogue Lidl : « auto » (d'après l'interface ; le catalan → espagnol) ou un code
-     * du site (es-ES, fr-FR, …). Indépendant de la langue de l'interface.
-     */
-    var recipeLanguage: String
-        get() = p.getString("recipeLanguage", "auto") ?: "auto"
-        set(v) {
-            p.edit().putString("recipeLanguage", v).commit()
-        }
-
     // ------------------------------------------------------------------ toqueapp.org
 
     /** Clé de ce robot sur toqueapp.org (vide : pas relié à un compte). Jamais affichée. */
@@ -418,5 +380,63 @@ class Prefs(context: Context) {
     /** Oublie le compte relié (les recettes reçues restent). */
     fun forgetSite() {
         p.edit().remove("siteToken").remove("siteUser").remove("sitePendingFavorites").commit()
+    }
+
+    // ------------------------------------------------------------------ Claudimix
+
+    /** Jeton de ce robot sur Claudimix (« cmr_… », vide : pas relié). Jamais affiché ni journalisé. */
+    var claudimixToken: String
+        get() = p.getString("claudimixToken", "") ?: ""
+        set(v) {
+            p.edit().putString("claudimixToken", v).commit()
+        }
+
+    val claudimixLinked: Boolean get() = claudimixToken.isNotBlank()
+
+    var claudimixRobotId: String
+        get() = p.getString("claudimixRobotId", "") ?: ""
+        set(v) {
+            p.edit().putString("claudimixRobotId", v).commit()
+        }
+
+    /** Nom du foyer auquel le robot est relié. */
+    var claudimixHousehold: String
+        get() = p.getString("claudimixHousehold", "") ?: ""
+        set(v) {
+            p.edit().putString("claudimixHousehold", v).commit()
+        }
+
+    /** Curseur de la synchro des recettes (ms, `until` de la dernière page reçue) ; 0 : tout redemander. */
+    var claudimixSince: Long
+        get() = p.getLong("claudimixSince", 0)
+        set(v) {
+            p.edit().putLong("claudimixSince", v).commit()
+        }
+
+    /** Favoris locaux déjà envoyés au foyer (une fois, après l'appairage). */
+    var claudimixFavoritesSent: Boolean
+        get() = p.getBoolean("claudimixFavoritesSent", false)
+        set(v) {
+            p.edit().putBoolean("claudimixFavoritesSent", v).commit()
+        }
+
+    /** Fin de la dernière synchro des recettes réussie (ms). */
+    var claudimixSyncMs: Long
+        get() = p.getLong("claudimixSyncMs", 0)
+        set(v) {
+            p.edit().putLong("claudimixSyncMs", v).commit()
+        }
+
+    /** Relie le robot (réponse « paired » de pair/poll) : la synchro des recettes repart du début. */
+    fun linkClaudimix(token: String, robotId: String, household: String) {
+        p.edit().putString("claudimixToken", token).putString("claudimixRobotId", robotId)
+            .putString("claudimixHousehold", household).putLong("claudimixSince", 0)
+            .putBoolean("claudimixFavoritesSent", false).commit()
+    }
+
+    /** Oublie le foyer (Dissocier, ou robot retiré du foyer). Les recettes reçues restent. */
+    fun forgetClaudimix() {
+        p.edit().remove("claudimixToken").remove("claudimixRobotId").remove("claudimixHousehold")
+            .remove("claudimixFavoritesSent").commit()
     }
 }

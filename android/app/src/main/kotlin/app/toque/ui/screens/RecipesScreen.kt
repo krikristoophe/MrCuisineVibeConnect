@@ -19,7 +19,6 @@ import android.widget.HorizontalScrollView
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
-import app.toque.Prefs
 import app.toque.core.i18n.I18n
 import app.toque.core.i18n.tr
 import app.toque.core.recipes.RecipeFilter
@@ -322,9 +321,9 @@ class RecipesScreen(
         count.text = if (results.isEmpty() || query.isBlank()) "" else if (results.size == 1) tr("1 recette") else tr("%d recettes", results.size)
         empty.visibility = if (results.isEmpty() && repo.loaded) View.VISIBLE else View.GONE
         emptyText.text = when {
-            none && a.prefs.mode == Prefs.Mode.HARDWARE ->
-                tr("Les recettes Lidl apparaîtront après la première synchronisation.\nRéglages › Recettes Lidl › Synchroniser.")
-            none -> tr("Les recettes Lidl apparaîtront après la première synchronisation, une fois Toque installé sur le robot.")
+            none && !a.prefs.claudimixLinked ->
+                tr("Les recettes viennent de Claudimix.\nRéglages › Claudimix : reliez ce robot à votre foyer.")
+            none -> tr("Les recettes apparaîtront après la première synchronisation avec Claudimix.")
             usage != Usage.NONE && query.isBlank() -> tr("Aucune recette cuisinée pour l'instant.\nLes recettes apparaissent ici dès leur première cuisson.")
             filter.favoritesOnly && query.isBlank() -> tr("Aucun favori pour l'instant.\nTouchez l'étoile d'une recette pour l'ajouter.")
             filter.source == RecipeSource.COMMUNITY && query.isBlank() ->
