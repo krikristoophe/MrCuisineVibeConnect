@@ -116,16 +116,12 @@ class MainActivity : Activity() {
             push(KnobSetupScreen(this))
         }
         // Robot pas encore confirmé : on le reconnaît sans rien lui envoyer, la personne confirme.
-        // Ensuite (une seule fois) : proposer de relier un compte Toque.
         if (!prefs.robotConfirmed) root.post { askRobot() }
-        else {
-            ensureHardware()
-            if (!prefs.siteOffered) root.post { offerSite() }
-        }
-        // Recettes de la communauté (sans compte) : une première fois sans attendre la nuit, puis une
-        // fois par jour au plus. Un peu après le démarrage, pour ne pas le ralentir.
-        if (prefs.siteCommunity && System.currentTimeMillis() - prefs.siteLastMs > 24 * 3600_000L)
-            main.postDelayed({ app.site.sync() }, 20_000)
+        else ensureHardware()
+        // Ce fork ne reçoit plus les recettes de la communauté (toqueapp.org) et ne propose plus de
+        // compte : coupé une fois pour toutes, ce qui retire aussi les recettes déjà reçues (la synchro
+        // de nuit ne contacte alors plus le site).
+        if (prefs.siteCommunity) app.site.setCommunity(false)
     }
 
     /**
@@ -248,7 +244,6 @@ class MainActivity : Activity() {
         toast(msg, if (p.tested) Ui.OK else Ui.WARN)
         if (before != null && before.lidlDevice != p.lidlDevice && app.recipes.count > 0)
             toast(tr("Synchronisez les recettes Lidl pour avoir celles de ce robot."), Ui.WARN)
-        if (!prefs.siteOffered) root.post { offerSite() }
     }
 
     /**

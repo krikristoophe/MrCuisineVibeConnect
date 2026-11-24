@@ -106,8 +106,9 @@ class RecipesScreen(
         bar.addView(field, LinearLayout.LayoutParams(0, Ui.u(64), 1f))
         count = Ui.text(c, "", 17f, Ui.TEXT2)
         bar.addView(count, Ui.lp(Ui.WRAP, Ui.WRAP, l = 18))
-        if (favorites) {
+        if (favorites && (a.prefs.siteLinked || a.prefs.siteCommunity)) {
             // Favoris : reprendre tout de suite ceux du compte toqueapp.org (et les recettes du site).
+            // Ce fork ne relie pas de compte et ne reçoit plus la communauté : bouton masqué.
             refreshBtn = Ui.button(c, tr("Actualiser"), Ui.Style.SECONDARY, Icon.Kind.SYNC, height = 64, textSize = 18f) { refreshFavorites() }
                 .also { bar.addView(it, Ui.lp(Ui.WRAP, Ui.WRAP, l = 16)) }
         }
