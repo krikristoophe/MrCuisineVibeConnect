@@ -12,7 +12,6 @@ import android.widget.TextView
 import app.toque.TimeSync
 import app.toque.core.i18n.tr
 import app.toque.core.machine.Snapshot
-import kotlin.random.Random
 
 /**
  * Mise en veille, comme l'appli d'origine : après quelques minutes sans geste et sans programme
@@ -47,7 +46,6 @@ class Standby(private val a: MainActivity, private val root: FrameLayout) {
     private val tick = object : Runnable {
         override fun run() {
             refresh()
-            move()
             main.postDelayed(this, 60_000)
         }
     }
@@ -107,15 +105,18 @@ class Standby(private val a: MainActivity, private val root: FrameLayout) {
         val v = FrameLayout(a)
         v.setBackgroundColor(0xFF000000.toInt())
         v.isClickable = true
-        val b = Ui.vertical(a, Gravity.CENTER_HORIZONTAL)
         // Luminosité normale de l'écran en veille (avant : 2 %, l'heure ne se voyait plus) : heure
-        // claire sur fond noir, qui bouge chaque minute pour ne pas marquer l'écran.
-        val t = Ui.text(a, "", 150f, 0xFFE6E9EE.toInt(), Ui.THIN)
-        b.addView(t, Ui.lp(Ui.WRAP, Ui.WRAP))
+        // claire sur fond noir, à la même place et à la même taille que sur l'accueil (barre du
+        // haut de 70, marges de l'accueil, ligne « Bonjour » gardée vide pour l'alignement).
+        val b = Ui.vertical(a, Gravity.START)
+        b.setPadding(Ui.u(28), Ui.u(70 + 10), 0, 0)
+        b.addView(Ui.text(a, " ", 24f, 0, Ui.LIGHT), Ui.lp(Ui.WRAP, Ui.WRAP, t = 8))
+        val t = Ui.text(a, "", 132f, 0xFFE6E9EE.toInt(), Ui.THIN)
+        b.addView(t, Ui.lp(Ui.WRAP, Ui.WRAP, t = 2))
         val h = Ui.text(a, "", 22f, Ui.WARN, Ui.MEDIUM)
         b.addView(h, Ui.lp(Ui.WRAP, Ui.WRAP, t = 6))
         b.addView(Ui.text(a, tr("Touchez l'écran pour reprendre"), 17f, 0xFF8B95A8.toInt()), Ui.lp(Ui.WRAP, Ui.WRAP, t = 18))
-        v.addView(b, Ui.flp(Ui.WRAP, Ui.WRAP, Gravity.CENTER))
+        v.addView(b, Ui.flp(Ui.WRAP, Ui.WRAP, Gravity.TOP or Gravity.START))
         root.addView(v, Ui.flp())
         view = v
         box = b
@@ -152,16 +153,6 @@ class Standby(private val a: MainActivity, private val root: FrameLayout) {
             it.text = if (temp >= 50) tr("Bol chaud : %d °C", temp) else ""
             it.visibility = if (temp >= 50) View.VISIBLE else View.GONE
         }
-    }
-
-    /** Déplace un peu l'heure chaque minute, pour ne pas marquer l'écran. */
-    private fun move() {
-        val v = view ?: return
-        val b = box ?: return
-        val dx = ((v.width - b.width) / 2 - Ui.u(40)).coerceAtLeast(0)
-        val dy = ((v.height - b.height) / 2 - Ui.u(40)).coerceAtLeast(0)
-        b.translationX = if (dx > 0) Random.nextInt(-dx, dx + 1).toFloat() else 0f
-        b.translationY = if (dy > 0) Random.nextInt(-dy, dy + 1).toFloat() else 0f
     }
 
     private fun brightness(value: Float) {
