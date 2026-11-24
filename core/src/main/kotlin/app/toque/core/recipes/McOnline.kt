@@ -14,14 +14,18 @@ import app.toque.core.machine.Accessory
  * Recettes publiées sur monsieur-cuisine.com, lues directement par l'API publique du site
  * (sans compte, sans l'appli d'origine) puis converties au modèle de Toque.
  *
- * Seules les recettes officielles du Monsieur Cuisine connect sont demandées. Chaque étape
- * porte son réglage machine (mode « customized », balance, turbo, vapeur, rissoler, pétrir).
+ * Seules les recettes officielles du robot choisi sont demandées (« MC2.0 » : Connect, « MC3.0 » :
+ * Smart, voir [app.toque.core.robot.RobotProfile.lidlDevice]). Chaque étape porte son réglage
+ * machine (mode « customized », balance, turbo, vapeur, rissoler, pétrir ; sur le Smart aussi
+ * mixer, smoothie, sous-vide, mijoter, fermenter).
  */
 object McOnline {
     const val API = "https://mc-api.tecpal.com"
     /** Monsieur Cuisine connect. */
     const val DEVICE = "MC2.0"
     const val PAGE_SIZE = 100
+    /** Version de la lecture des fiches : à augmenter quand elle change, pour que la synchro les relise toutes. */
+    const val PARSER = 4
     /** Préfixe des identifiants Toque des recettes du site (« mc- » : celles de l'appli d'origine). */
     const val ID_PREFIX = "web-"
 
@@ -29,12 +33,77 @@ object McOnline {
     fun headers(language: String): Map<String, String> =
         linkedMapOf("Accept" to "application/json", "Accept-Language" to language, "device-type" to "web")
 
-    fun listUrl(page: Int): String =
-        "$API/api/v2/recipes/page/$page/size/$PAGE_SIZE?filters%5BdeviceTypes%5D%5B%5D=$DEVICE&filters%5Bsource%5D%5B%5D=official"
+    fun listUrl(page: Int, device: String = DEVICE): String =
+        "$API/api/v2/recipes/page/$page/size/$PAGE_SIZE?filters%5BdeviceTypes%5D%5B%5D=$device&filters%5Bsource%5D%5B%5D=official"
+
+    /**
+     * Clé de l'index de synchro : changer de langue ou de robot relit toutes les fiches. Pour le
+     * Connect, la langue seule comme avant (pas de resynchronisation complète à la mise à jour).
+     */
+    fun indexKey(language: String, device: String): String = if (device == DEVICE) language else "$language|$device"
+
+    /** Robots indiqués par le site pour une recette (liste « deviceTypes », ou « deviceType » seul). */
+    fun devicesOf(r: Map<String, Any?>): List<String> {
+        val list = r["deviceTypes"].list().mapNotNull { (it as? String)?.trim()?.takeIf { d -> d.isNotEmpty() } }
+        return list.ifEmpty { listOfNotNull(r.str("deviceType")?.trim()?.takeIf { it.isNotEmpty() }) }
+    }
 
     fun recipeUrl(apiId: Long): String = "$API/api/v2/recipes/$apiId"
 
     fun toqueId(apiId: Long): String = ID_PREFIX + apiId
+
+    /** Unité de portion qui compte des personnes, dans les langues du site. */
+    fun isPeople(unit: String): Boolean {
+        val u = TextNorm.normalize(unit)
+        return u.isEmpty() || PEOPLE.any { u.startsWith(it) }
+    }
+
+    private val PEOPLE = listOf("portion", "pers", "serving", "people", "porzion", "racion", "porcion", "comensal",
+        "pessoa", "porco", "porti", "dose", "osob", "porcj", "adag")
+
+    /**
+     * Langues dont les recettes peuvent compléter celles de la langue de l'interface, de la plus
+     * lisible à la moins lisible pour la plupart des gens. Chaque recette n'est prise qu'une fois
+     * (même [Entry.translationId]), dans la première de ces langues qui l'a.
+     */
+    val OTHER_LANGUAGES = listOf("en-US", "fr-FR", "de-DE", "es-ES", "it-IT", "nl-NL", "pt-PT", "pl-PL")
+
+    /**
+     * Entrées des autres langues à ajouter : celles dont aucune traduction n'est déjà dans
+     * [own] ni dans une langue précédente de [others] (dans l'ordre de [OTHER_LANGUAGES]).
+     */
+    fun missingTranslations(own: List<Entry>, others: List<List<Entry>>): List<Entry> {
+        val seen = HashSet<Long>()
+        for (e in own) if (e.translationId > 0) seen += e.translationId
+        val out = ArrayList<Entry>()
+        for (list in others) {
+            val added = HashSet<Long>()
+            for (e in list) {
+                // Sans identifiant de traduction, on ne peut pas savoir si elle existe déjà : on s'abstient.
+                if (e.translationId <= 0 || e.translationId in seen || e.translationId in added) continue
+                added += e.translationId
+                out += e
+            }
+            seen += added
+        }
+        return out
+    }
+
+    /**
+     * Langues proposées pour le catalogue Lidl (le site n'a pas de catalan).
+     * Valeur « auto » : dérivée de la langue de l'interface via [languageFor].
+     */
+    val RECIPE_LANGUAGES = listOf(
+        "auto",
+        "es-ES",
+        "fr-FR",
+        "en-US",
+        "de-DE",
+        "it-IT",
+        "pt-PT",
+        "nl-NL",
+        "pl-PL",
+    )
 
     /** Langue des recettes d'après celle de l'interface (le français par défaut). */
     fun languageFor(uiCode: String): String = when (uiCode.substringBefore('-').lowercase()) {
@@ -42,12 +111,21 @@ object McOnline {
         "de" -> "de-DE"
         "it" -> "it-IT"
         "es" -> "es-ES"
+        // Pas de recettes en catalan sur monsieur-cuisine.com : on prend l'espagnol.
+        "ca" -> "es-ES"
         "nl" -> "nl-NL"
         "pl" -> "pl-PL"
         "cs" -> "cs-CZ"
         "pt" -> "pt-PT"
         "en" -> "en-US"
         else -> "fr-FR"
+    }
+
+    /** Langue effective du catalogue : réglage manuel, ou [languageFor] si « auto ». */
+    fun recipeLanguage(uiCode: String, setting: String?): String {
+        val s = setting?.trim().orEmpty()
+        if (s.isNotEmpty() && s != "auto" && s in RECIPE_LANGUAGES) return s
+        return languageFor(uiCode)
     }
 
     class Entry(
@@ -57,6 +135,10 @@ object McOnline {
         val author: String = "",
         val rating: Double = 0.0,
         val ratingCount: Int = 0,
+        /** Même valeur pour toutes les traductions d'une recette (0 : inconnue). */
+        val translationId: Long = 0,
+        /** Langue de la fiche (« de-DE »). */
+        val language: String = "",
     ) {
         /** Empreinte enregistrée dans l'index de synchro : fiche modifiée, ou seulement sa note. */
         val stamp: String get() = "$updated|${ratingText(rating)}|$ratingCount|$author"
@@ -86,13 +168,19 @@ object McOnline {
                 author = r["author"].obj().str("name")?.trim().orEmpty(),
                 rating = (r.double("rating") ?: 0.0).coerceIn(0.0, 5.0),
                 ratingCount = (r.int("totalRating") ?: 0).coerceAtLeast(0),
+                translationId = r["translationId"].long() ?: 0,
+                language = r.str("language")?.trim().orEmpty(),
             )
         }
         return Page(d.int("total") ?: entries.size, d.int("totalPage") ?: 1, entries)
     }
 
-    /** Fiche complète (réponse de [recipeUrl]) convertie en recette Toque ; null si inutilisable. */
-    fun parseRecipe(json: String): Recipe? {
+    /**
+     * Fiche complète (réponse de [recipeUrl]) convertie en recette Toque ; null si inutilisable.
+     * [categoryNames] : catégories de la langue des recettes (voir [McCategories]), pour nommer
+     * celles d'une fiche prise dans une autre langue.
+     */
+    fun parseRecipe(json: String, categoryNames: Map<Long, String> = emptyMap()): Recipe? {
         val r = Json.parse(json).obj()["data"].obj()["recipe"].obj()
         val apiId = r["id"].long() ?: return null
         val title = r.str("name")?.trim().orEmpty()
@@ -102,16 +190,20 @@ object McOnline {
         val defaultSize = r.int("defaultServingSizeId")
         val size = sizes.firstOrNull { it.int("id") == defaultSize } ?: sizes.firstOrNull() ?: emptyMap()
 
-        val categories = r["categories"].list().mapNotNull { it.obj().str("name")?.trim()?.takeIf { n -> n.isNotEmpty() } }
+        val categories = r["categories"].list().mapNotNull { any ->
+            val c = any.obj()
+            val local = if (categoryNames.isEmpty()) null else c["id"].long()?.let { McCategories.localName(it, categoryNames) }
+            (local ?: c.str("name")?.trim())?.takeIf { n -> n.isNotEmpty() }
+        }.distinct()
         val tags = r["tags"].list().mapNotNull { t ->
             (if (t is String) t else t.obj().str("name"))?.trim()?.takeIf { it.isNotEmpty() }
         }
 
         val notes = ArrayList<String>()
-        val servingUnit = size.str("servingUnit")?.trim().orEmpty()
         val amount = size.int("amount") ?: 0
-        if (amount > 0 && servingUnit.isNotEmpty() && !servingUnit.lowercase().startsWith("portion") &&
-            !servingUnit.lowercase().startsWith("pers")) notes += tr("Pour %d %s", amount, servingUnit)
+        // « 4 portions » : des personnes ; « 6 pots », « 6 Gläser » : l'unité est gardée.
+        val servingUnit = size.str("servingUnit")?.trim().orEmpty().takeUnless { isPeople(it) }.orEmpty()
+        if (amount > 0 && servingUnit.isNotEmpty()) notes += tr("Pour %d %s", amount, servingUnit)
         plain(r.str("description"))?.let { notes += it }
         plain(r.str("hintsAndTips"))?.let { notes += it }
 
@@ -136,6 +228,8 @@ object McOnline {
             author = r["author"].obj().str("name")?.trim().orEmpty(),
             rating = (r.double("rating") ?: 0.0).coerceIn(0.0, 5.0),
             ratingCount = (r.int("totalRating") ?: 0).coerceAtLeast(0),
+            servingUnit = servingUnit,
+            devices = devicesOf(r),
         )
     }
 
@@ -258,7 +352,8 @@ object McOnline {
     private fun machine(mode: String, st: Map<String, Any?>, reverse: Boolean, text: String): StepMachine? {
         val seconds = (st.int("time") ?: 0).coerceAtLeast(0)
         return when {
-            mode == "customized" -> {
+            // « ramp » : montée en vitesse par paliers, un réglage manuel par palier (enchaînés en un programme).
+            mode == "customized" || mode == "ramp" -> {
                 val speedF = (st["speedFloat"] as? Number)?.toDouble() ?: st.int("speed")?.toDouble() ?: 0.0
                 val speed = Math.ceil(speedF).toInt().coerceIn(0, 10)
                 StepMachine(
@@ -274,6 +369,13 @@ object McOnline {
             mode == "steaming" -> StepMachine(program = StepProgram.STEAM, seconds = seconds)
             mode == "roasting" -> StepMachine(program = StepProgram.TOAST, seconds = seconds)
             mode.startsWith("kneading") -> StepMachine(program = StepProgram.KNEAD, seconds = seconds)
+            // Programmes du Monsieur Cuisine Smart (recettes « MC3.0 »), noms relevés par le portage
+            // Camybrith Cooking ; la température exacte (sous-vide, mijoter, fermenter) est gardée.
+            mode == "puree" -> StepMachine(program = StepProgram.MIXER, seconds = seconds)
+            mode == "smoothie" -> StepMachine(program = StepProgram.SMOOTHIE, seconds = seconds)
+            mode == "sous_vide" -> StepMachine(program = StepProgram.SOUS_VIDE, seconds = seconds, tempC = (st.int("temperature") ?: 0).coerceAtLeast(0))
+            mode == "slow_cooking" -> StepMachine(program = StepProgram.SLOW_COOK, seconds = seconds, tempC = (st.int("temperature") ?: 0).coerceAtLeast(0))
+            mode == "fermentation" -> StepMachine(program = StepProgram.FERMENT, seconds = seconds, tempC = (st.int("temperature") ?: 0).coerceAtLeast(0))
             else -> null
         }
     }

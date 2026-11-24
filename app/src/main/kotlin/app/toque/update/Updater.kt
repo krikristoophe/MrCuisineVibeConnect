@@ -4,12 +4,15 @@ import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ApplicationInfo
 import android.content.pm.PackageInstaller
 import android.os.Handler
 import android.os.Looper
+import app.toque.ExtraRoots
 import app.toque.ToqueApp
 import app.toque.core.i18n.tr
 import app.toque.core.machine.RootShell
+import app.toque.core.robot.RobotProfiles
 import app.toque.core.update.Release
 import app.toque.core.update.Releases
 import app.toque.ui.MainActivity
@@ -18,6 +21,7 @@ import java.io.FileOutputStream
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
+import javax.net.ssl.HttpsURLConnection
 import javax.net.ssl.SSLException
 
 /**
@@ -35,6 +39,14 @@ class Updater(private val context: Context) {
     @Suppress("DEPRECATION")
     val installedCode: Int = info.versionCode
 
+    /**
+     * APK du Smart à prendre : celui installé tourne en mode sûr (APK du Smart), ou le robot choisi est un
+     * Smart. Chaque robot reste ainsi sur l'APK qui lui convient.
+     */
+    private val smartApk: Boolean
+        get() = context.applicationInfo.flags and ApplicationInfo.FLAG_VM_SAFE_MODE != 0 ||
+            ToqueApp.of(context).prefs.robot === RobotProfiles.MC_SMART
+
     /** Dernière version publiée (lève [Failure] avec un message lisible). */
     fun latest(): Release {
         val c = open(Releases.LATEST_URL, "application/vnd.github+json")
@@ -46,7 +58,7 @@ class Updater(private val context: Context) {
                 else -> throw Failure(tr("GitHub a répondu %d", code))
             }
             val text = c.inputStream.bufferedReader().use { it.readText() }
-            val r = try { Releases.parse(text) } catch (e: IllegalArgumentException) { throw Failure(tr("Réponse GitHub illisible")) }
+            val r = try { Releases.parse(text, smartApk) } catch (e: IllegalArgumentException) { throw Failure(tr("Réponse GitHub illisible")) }
             log.write("maj", "dernière version publiée : ${r.version} (installée : $installedVersion)")
             return r
         } catch (e: IOException) {
@@ -165,6 +177,8 @@ class Updater(private val context: Context) {
 
     private fun open(url: String, accept: String): HttpURLConnection {
         val c = URL(url).openConnection() as HttpURLConnection
+        // Les redirections suivies (github.com → release-assets…) gardent cette fabrique.
+        if (c is HttpsURLConnection) c.sslSocketFactory = ExtraRoots.socketFactory(context)
         c.connectTimeout = 15_000
         c.readTimeout = 30_000
         c.instanceFollowRedirects = true

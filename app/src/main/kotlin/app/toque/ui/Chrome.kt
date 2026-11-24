@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.RectF
+import android.graphics.drawable.InsetDrawable
 import android.os.Handler
 import android.os.Looper
 import android.view.Gravity
@@ -11,12 +12,12 @@ import android.view.View
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import app.toque.Prefs
+import app.toque.TimeSync
 import app.toque.core.i18n.tr
 import app.toque.core.machine.JobState
 import app.toque.core.machine.LinkState
 import app.toque.core.machine.MachineEvent
 import app.toque.core.machine.Snapshot
-import app.toque.core.protocol.Mcc
 
 /** Écran de l'appli (vue construite une fois, réutilisée). */
 abstract class Screen(val a: MainActivity) {
@@ -29,9 +30,14 @@ abstract class Screen(val a: MainActivity) {
     open fun onHide() {}
     open fun onSnapshot(s: Snapshot) {}
     open fun onEvent(e: MachineEvent) {}
+    /** L'écran joue lui-même le son de fin de ce programme (fin de recette) : pas de bip habituel. */
+    open fun ownsFinishSound(e: MachineEvent): Boolean = false
     open fun onKnob(delta: Int): Boolean = false
     open fun onKnobPress(): Boolean = false
-    open fun canLeave(): Boolean = true
+    /** false : l'écran demande d'abord confirmation (modifications non enregistrées) et appelle [proceed] si on confirme. */
+    open fun canLeave(proceed: () -> Unit): Boolean = true
+    /** Empêche la mise en veille tant que cet écran est affiché (balance). */
+    open val keepAwake: Boolean get() = false
 }
 
 /** Barre supérieure : retour, titre, état de la base, heure. */
@@ -40,14 +46,19 @@ class TopBar(private val a: MainActivity) : LinearLayout(a) {
     private val titleView = Ui.ellipsize(Ui.text(a, "", 24f, Ui.TEXT, Ui.MEDIUM))
     private val temp = Ui.chip(a, "", Icon.Kind.THERMO, Ui.TEXT2)
     private val lid = Ui.chip(a, tr("Couvercle ouvert"), Icon.Kind.LID, Ui.WARN, 0x33FFC14D)
+    private val bowl = Ui.chip(a, tr("Bol retiré"), Icon.Kind.POT, Ui.WARN, 0x33FFC14D)
     private val link = Ui.chip(a, "", Icon.Kind.LINK, Ui.TEXT2)
-    private val clock = Ui.text(a, "", 22f, Ui.TEXT, Ui.LIGHT)
-    private val home = Icon(a, Icon.Kind.HOME, Ui.TEXT2)
+    private val clock = Ui.chip(a, "", Icon.Kind.CLOCK, Ui.TEXT)
+    private val home = Icon(a, Icon.Kind.HOME, Ui.TEXT)
     private val handler = Handler(Looper.getMainLooper())
     private val tick = object : Runnable {
         override fun run() {
-            clock.text = MainActivity.now()
-            handler.postDelayed(this, 10_000)
+            // Pastille masquée tant que l'heure n'est pas réglée ou que le Wi-Fi est coupé : une heure
+            // fausse (2010, 01:00 au démarrage) trompe plus qu'une heure absente.
+            val show = TimeSync.showClock(a)
+            if (show) Ui.chipText(clock).text = MainActivity.now()
+            clock.visibility = if (show) View.VISIBLE else View.GONE
+            handler.postDelayed(this, if (show) 10_000 else 2_000)
         }
     }
     private var adminTaps = 0
@@ -57,21 +68,19 @@ class TopBar(private val a: MainActivity) : LinearLayout(a) {
         orientation = HORIZONTAL
         setGravity(Gravity.CENTER_VERTICAL)
         setPadding(Ui.u(10), 0, Ui.u(18), 0)
-        setBackgroundColor(Ui.BG)
-        back.setPadding(Ui.u(10), Ui.u(10), Ui.u(10), Ui.u(10))
-        back.background = Ui.pressable(Ui.round(0, 30f), 30f)
-        back.setOnClickListener { a.back() }
+        // Transparente : le dégradé du fond passe aussi derrière la barre du haut.
+        roundButton(back) { a.back() }
         addView(back, LayoutParams(Ui.u(52), Ui.u(52)))
         addView(titleView, LayoutParams(0, Ui.WRAP, 1f).apply { leftMargin = Ui.u(6) })
         addView(lid, Ui.lp(Ui.WRAP, Ui.WRAP, r = 10))
+        addView(bowl, Ui.lp(Ui.WRAP, Ui.WRAP, r = 10))
         addView(temp, Ui.lp(Ui.WRAP, Ui.WRAP, r = 10))
-        addView(link, Ui.lp(Ui.WRAP, Ui.WRAP, r = 16))
-        addView(clock, Ui.lp(Ui.WRAP, Ui.WRAP, r = 6))
-        home.setPadding(Ui.u(10), Ui.u(10), Ui.u(10), Ui.u(10))
-        home.background = Ui.pressable(Ui.round(0, 30f), 30f)
-        home.setOnClickListener { a.home() }
+        addView(link, Ui.lp(Ui.WRAP, Ui.WRAP, r = 10))
+        addView(clock, Ui.lp(Ui.WRAP, Ui.WRAP, r = 8))
+        roundButton(home) { a.home() }
         addView(home, LayoutParams(Ui.u(52), Ui.u(52)))
         lid.visibility = View.GONE
+        bowl.visibility = View.GONE
         temp.visibility = View.GONE
         // Accès caché aux réglages Android : 5 appuis rapides sur l'heure.
         clock.setOnClickListener {
@@ -82,6 +91,14 @@ class TopBar(private val a: MainActivity) : LinearLayout(a) {
                 a.openAndroidSettings()
             }
         }
+    }
+
+    /** Bouton rond de 44 au centre d'une zone tactile de 52, de la même famille que les pastilles ; l'icône fait 26. */
+    private fun roundButton(icon: Icon, onClick: () -> Unit) {
+        icon.background = InsetDrawable(Ui.pressable(Ui.round(Ui.SURFACE2, 22f, Ui.STROKE, 1f), 22f), Ui.u(4))
+        // Après le fond : un fond qui porte une marge impose sinon la sienne à la vue.
+        icon.setPadding(Ui.u(13), Ui.u(13), Ui.u(13), Ui.u(13))
+        icon.setOnClickListener { onClick() }
     }
 
     fun startClock() {
@@ -99,6 +116,9 @@ class TopBar(private val a: MainActivity) : LinearLayout(a) {
 
     fun update(s: Snapshot) {
         lid.visibility = if (s.hasSample && s.lidOpen) View.VISIBLE else View.GONE
+        // Seulement si la détection du bol est exigée : la personne a vérifié que le capteur est
+        // fiable (sens réglé), sinon la pastille resterait affichée à tort.
+        bowl.visibility = if (s.hasSample && a.prefs.requireBowl && !s.bowlDetected) View.VISIBLE else View.GONE
         if (s.hasSample) {
             temp.visibility = View.VISIBLE
             Ui.chipText(temp).text = "${s.actualTempC} °C"
@@ -106,10 +126,18 @@ class TopBar(private val a: MainActivity) : LinearLayout(a) {
             Ui.chipText(temp).setTextColor(col)
             (temp.getChildAt(0) as Icon).color = col
         } else temp.visibility = View.GONE
-        val demo = a.prefs.mode == Prefs.Mode.DEMO
+        val mode = a.prefs.mode
+        val simulated = mode != Prefs.Mode.HARDWARE
         val (label, color) = when {
             s.hasFault -> tr("Alerte") to Ui.DANGER
-            s.link == LinkState.READY -> (if (demo) tr("Démo") else tr("Prête")) to (if (demo) Ui.COOL else Ui.OK)
+            s.link == LinkState.READY -> {
+                val label = when (mode) {
+                    Prefs.Mode.DEMO -> tr("Démo · Prête")
+                    Prefs.Mode.TWIN -> tr("Jumeau · Prête")
+                    Prefs.Mode.HARDWARE -> tr("Prête")
+                }
+                label to (if (simulated) Ui.COOL else Ui.OK)
+            }
             s.link == LinkState.ARMING -> tr("Connexion…") to Ui.WARN
             s.link == LinkState.LOST -> tr("Liaison perdue") to Ui.DANGER
             else -> tr("Base absente") to Ui.TEXT3
@@ -205,7 +233,9 @@ class MachineBar(private val a: MainActivity) : FrameLayout(a) {
         if (s.state == JobState.PAUSED) {
             a.machine.resume(s.hotBlendConfirmed) { v ->
                 if (!v.ok && v.has(app.toque.core.machine.SafetyPolicy.HOT_BLEND)) {
-                    a.confirm(tr("Contenu chaud"), tr("Le bol est à %d °C. Reprendre le mixage ?", s.actualTempC), tr("Reprendre"), icon = Icon.Kind.THERMO) {
+                    val q = if (app.toque.core.robot.RobotProfiles.active.capabilities.measuresTemperature) tr("Le bol est à %d °C. Reprendre le mixage ?", s.actualTempC)
+                        else tr("Ce robot ne mesure pas toujours la température du bol : Toque considère le contenu comme chaud. Reprendre le mixage ?")
+                    a.confirm(tr("Contenu chaud"), q, tr("Reprendre"), icon = Icon.Kind.THERMO) {
                         a.machine.resume(true) { a.refusal(it) }
                     }
                 } else a.refusal(v)
@@ -256,9 +286,14 @@ class MachineBar(private val a: MainActivity) : FrameLayout(a) {
         time.text = if (st == JobState.FINISHED) "00:00" else Ui.clock(s.remainingMs)
         progress.progress = if (s.totalMs > 0) s.elapsedMs.toFloat() / s.totalMs else 0f
         progress.color = if (s.jobTempLevel > 0) Ui.ACCENT else Ui.COOL
-        Ui.chipText(speedChip).text = if (s.jobKind == "STEAM") tr("Vapeur") else tr("Vitesse %d", s.jobSpeed)
+        Ui.chipText(speedChip).text = when {
+            s.jobKind == "STEAM" -> tr("Vapeur")
+            s.jobKind == "MANUAL" && s.jobSpeed == 0 -> tr("Sans mélange")
+            else -> tr("Vitesse %d", s.jobSpeed)
+        }
         tempChip.visibility = if (s.jobTempLevel > 0) View.VISIBLE else View.GONE
-        Ui.chipText(tempChip).text = "${Mcc.celsiusForLevel(s.jobTempLevel)} °C"
+        // °C exacts du programme (40 °C et programmes du Smart compris), pas le niveau de Toque juste en dessous.
+        Ui.chipText(tempChip).text = "${s.jobTempC} °C"
         dirChip.visibility = if (s.jobReverse && s.jobKind == "MANUAL") View.VISIBLE else View.GONE
         val ended = st == JobState.FINISHED || st == JobState.ABORTED
         setButtons(running = st != JobState.PAUSED, ended = ended, turbo = false)

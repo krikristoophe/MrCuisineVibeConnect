@@ -10,7 +10,7 @@ import android.widget.TextView
 import app.toque.Prefs
 import app.toque.core.i18n.tr
 import app.toque.core.machine.Snapshot
-import app.toque.core.protocol.Mcc
+import app.toque.core.robot.RobotProfiles
 import app.toque.ui.Icon
 import app.toque.ui.MainActivity
 import app.toque.ui.Screen
@@ -60,12 +60,15 @@ class DiagnosticsScreen(a: MainActivity) : Screen(a) {
             append(tr("Âge échantillon").padEnd(17)).append(if (s.sampleAgeMs < 0) "—" else "${s.sampleAgeMs} ms").append('\n')
             append(tr("Alerte").padEnd(17)).append(s.faultMessage.ifEmpty { tr("aucune") }).append('\n')
             append(tr("Moteur / chauffe").padEnd(17)).append(yn(s.motorOn)).append(" / ").append(yn(s.heaterOn)).append('\n')
-            append(tr("Régime").padEnd(17)).append(s.rpm).append(" ").append(tr("tr/min (niveau %d)", s.speedLevel)).append("\n")
+            append(tr("Régime").padEnd(17))
+            // Base qui ne mesure pas le régime lame en marche (issue #10) : la vitesse affichée est celle demandée.
+            if (s.motorOn && s.rpm == 0 && s.speedLevel > 0) append(tr("non mesuré · vitesse demandée %d", s.speedLevel)).append("\n")
+            else append(s.rpm).append(" ").append(tr("tr/min (niveau %d)", s.speedLevel)).append("\n")
             append(tr("Température").padEnd(17)).append(s.actualTempC).append(" ").append(tr("°C (consigne %d °C)", s.targetTempC)).append("\n")
             append(tr("Poids").padEnd(17)).append(s.weightG).append(" g · ").append(s.scaleState).append(if (s.scaleStable) " · " + tr("stable") else "").append('\n')
             append(tr("Couvercle ouvert").padEnd(17)).append(yn(s.lidOpen)).append('\n')
             append(tr("Bol détecté").padEnd(17)).append(yn(s.bowlDetected)).append('\n')
-            append(tr("Erreur base").padEnd(17)).append(if (s.boardErrorCode == 0) tr("aucune") else "${s.boardErrorCode} · ${Mcc.boardErrorMessage(s.boardErrorCode)}").append('\n')
+            append(tr("Erreur base").padEnd(17)).append(if (s.boardErrorCode == 0) tr("aucune") else "${s.boardErrorCode} · ${RobotProfiles.active.validator.errorMessage(s.boardErrorCode)}").append('\n')
             append(tr("Firmware base").padEnd(17)).append(s.firmware).append('\n')
             append(tr("Programme").padEnd(17)).append(s.jobLabel.ifEmpty { "—" }).append(' ').append(s.jobState).append('\n')
             append(tr("Commande").padEnd(17)).append(s.wireOperation).append(" v").append(s.wireSpeed).append(" t").append(s.wireTempLevel).append('\n')
@@ -102,6 +105,95 @@ class LogScreen(a: MainActivity) : Screen(a) {
     }
 
     override fun onShow() = load()
+}
+
+/**
+ * Réglage guidé du bouton rotatif, proposé au premier lancement : droite, gauche, appui.
+ * Les codes reçus sont retenus. « Plus tard » laisse le rappel sur l'accueil.
+ */
+class KnobSetupScreen(a: MainActivity) : Screen(a) {
+    override val title = tr("Réglage du bouton")
+    private lateinit var stepView: TextView
+    private lateinit var ask: TextView
+    private var step = 0
+    private var right = -1
+    private var left = -1
+    private var lastMs = 0L
+
+    override fun build(): View {
+        val root = Ui.vertical(c, Gravity.CENTER_HORIZONTAL)
+        root.setPadding(Ui.u(40), Ui.u(20), Ui.u(40), Ui.u(20))
+        root.addView(Ui.text(c, tr("Le bouton rotatif du robot règle les durées, les vitesses et les températures. Ce réglage ne se fait qu'une fois."),
+            20f, Ui.TEXT2).apply { gravity = Gravity.CENTER; setLineSpacing(0f, 1.2f) }, Ui.lp(Ui.MATCH, Ui.WRAP))
+        root.addView(Ui.spacer(c, weight = 1f), LinearLayout.LayoutParams(1, 0, 1f))
+        stepView = Ui.text(c, "", 22f, Ui.ACCENT, Ui.MEDIUM)
+        root.addView(stepView, Ui.lp(Ui.WRAP, Ui.WRAP))
+        ask = Ui.text(c, "", 44f, Ui.TEXT, Ui.LIGHT).apply { gravity = Gravity.CENTER }
+        root.addView(ask, Ui.lp(Ui.MATCH, Ui.WRAP, t = 12))
+        root.addView(Ui.spacer(c, weight = 1f), LinearLayout.LayoutParams(1, 0, 1f))
+        val row = Ui.horizontal(c, Gravity.CENTER)
+        row.addView(Ui.button(c, tr("Plus tard"), Ui.Style.GHOST, height = 60) { a.back() }, Ui.lp(Ui.WRAP, Ui.WRAP, r = 10))
+        row.addView(Ui.button(c, tr("Pas de bouton sur cet appareil"), Ui.Style.GHOST, height = 60) { finish(-1) })
+        root.addView(row, Ui.lp(Ui.WRAP, Ui.WRAP))
+        refresh()
+        return root
+    }
+
+    override fun onShow() {
+        a.knobListener = { e -> onKey(e) }
+    }
+
+    override fun onHide() {
+        a.knobListener = null
+    }
+
+    /** Un cran peut envoyer plusieurs touches : on laisse passer la rafale avant l'étape suivante. */
+    private fun settled(): Boolean {
+        val now = System.currentTimeMillis()
+        if (now - lastMs < 600) return false
+        lastMs = now
+        return true
+    }
+
+    private fun onKey(e: KeyEvent) {
+        val k = e.keyCode
+        if (e.repeatCount > 0 || k == right || k == left || !settled()) return
+        when (step) {
+            0 -> { right = k; step = 1 }
+            1 -> { left = k; step = 2 }
+            else -> { finish(k); return }
+        }
+        refresh()
+    }
+
+    private fun finish(press: Int) {
+        if (press >= 0) {
+            a.prefs.knobRight = right
+            a.prefs.knobLeft = left
+            a.prefs.knobPress = press
+            a.toast(tr("Bouton rotatif réglé"), Ui.OK)
+        }
+        a.prefs.knobSetupDone = true
+        a.back()
+    }
+
+    private fun refresh() {
+        stepView.text = tr("Étape %d sur 3", step + 1)
+        ask.text = when (step) {
+            0 -> tr("Tournez le bouton vers la droite")
+            1 -> tr("Tournez le bouton vers la gauche")
+            else -> tr("Appuyez sur le bouton")
+        }
+    }
+
+    /** Molette à défilement : déjà reconnue sans réglage, seul l'appui reste à apprendre. */
+    override fun onKnob(delta: Int): Boolean {
+        if (step < 2 && settled()) {
+            step++
+            refresh()
+        }
+        return true
+    }
 }
 
 /** Réglage du bouton rotatif : on tourne, l'appli retient les codes reçus. */
@@ -148,6 +240,7 @@ class KnobScreen(a: MainActivity) : Screen(a) {
             "right" -> a.prefs.knobRight = e.keyCode
             "press" -> a.prefs.knobPress = e.keyCode
         }
+        if (capture != null) a.prefs.knobSetupDone = true
         capture = null
         a.knobListener = null
         refresh()
@@ -156,7 +249,7 @@ class KnobScreen(a: MainActivity) : Screen(a) {
     private fun refresh() {
         fun name(k: Int, def: String) = if (k < 0) tr("%s (par défaut)", def) else KeyEvent.keyCodeToString(k).removePrefix("KEYCODE_")
         info.text = tr("Gauche : %s\nDroite : %s\nAppui : %s\n\nLes molettes (défilement) sont aussi reconnues automatiquement.",
-            name(a.prefs.knobLeft, "DPAD_LEFT"), name(a.prefs.knobRight, "DPAD_RIGHT"), name(a.prefs.knobPress, "DPAD_CENTER"))
+            name(a.prefs.knobLeft, "DPAD_LEFT, F7"), name(a.prefs.knobRight, "DPAD_RIGHT, F6"), name(a.prefs.knobPress, "DPAD_CENTER, F5"))
     }
 
     override fun onHide() {
