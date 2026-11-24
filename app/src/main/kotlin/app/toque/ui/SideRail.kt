@@ -22,7 +22,7 @@ import app.toque.ui.screens.SettingsScreen
  * Seule alerte affichée : le bol chaud (à partir de 50 °C).
  */
 class SideRail(private val a: MainActivity) : LinearLayout(a) {
-    private enum class Section { HOME, SEARCH, RECIPES, MANUAL, MORE, NONE }
+    private enum class Section { HOME, RECIPES, MANUAL, MORE, NONE }
 
     private val back = Icon(a, Icon.Kind.BACK, Ui.TEXT)
     private val items = LinkedHashMap<Section, Icon>()
@@ -32,7 +32,8 @@ class SideRail(private val a: MainActivity) : LinearLayout(a) {
         orientation = VERTICAL
         gravity = Gravity.CENTER_HORIZONTAL
         // Marge à gauche : le cadre du robot cache le bord de l'écran.
-        setPadding(Ui.u(14), Ui.u(14), 0, Ui.u(14))
+        // En haut 26 + 4 de retrait du fond du bouton Retour = 30, comme la marge des écrans.
+        setPadding(Ui.u(14), Ui.u(26), 0, Ui.u(14))
         back.background = InsetDrawable(Ui.pressable(Ui.round(Ui.SURFACE2, 24f, Ui.STROKE, 1f), 24f), Ui.u(4))
         back.setPadding(Ui.u(14), Ui.u(14), Ui.u(14), Ui.u(14))
         back.setOnClickListener { a.back() }
@@ -40,7 +41,6 @@ class SideRail(private val a: MainActivity) : LinearLayout(a) {
         addView(back, LayoutParams(Ui.u(56), Ui.u(56)))
         addView(View(a), LayoutParams(1, 0, 1f))
         item(Section.HOME, Icon.Kind.HOME, tr("Accueil")) { a.home() }
-        item(Section.SEARCH, Icon.Kind.SEARCH, tr("Rechercher une recette…")) { open(RecipesScreen(a, focusSearch = true)) }
         item(Section.RECIPES, Icon.Kind.BOOK, tr("Recettes")) { open(RecipesScreen(a)) }
         item(Section.MANUAL, Icon.Kind.POT, tr("Cuisson manuelle")) { open(ManualScreen(a)) }
         item(Section.MORE, Icon.Kind.GRID, tr("Plus")) { more() }

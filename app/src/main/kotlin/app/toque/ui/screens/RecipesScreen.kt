@@ -38,7 +38,6 @@ import java.util.concurrent.Executors
  */
 class RecipesScreen(
     a: MainActivity,
-    private val focusSearch: Boolean = false,
     private val favorites: Boolean = false,
     initialUsage: Usage = Usage.NONE,
 ) : Screen(a) {
@@ -61,6 +60,12 @@ class RecipesScreen(
     private var generation = 0
     private lateinit var input: EditText
     private lateinit var chips: LinearLayout
+    private lateinit var listBox: LinearLayout
+    private lateinit var searchBox: LinearLayout
+    private lateinit var suggestions: LinearLayout
+    private var queryChipText: TextView? = null
+    /** Écran de recherche ouvert (champ, suggestions, clavier) au lieu de la grille. */
+    private var searching = false
     private lateinit var grid: GridView
     private lateinit var count: TextView
     private lateinit var empty: LinearLayout
@@ -74,10 +79,26 @@ class RecipesScreen(
         val root = Ui.vertical(c)
         Ui.screenPadding(root, titled = false, bottom = false)   // la grille porte la marge du bas
 
-        val bar = Ui.horizontal(c)
-        val field = Ui.horizontal(c)
-        field.setPadding(Ui.u(20), 0, Ui.u(10), 0)
-        field.background = Ui.round(Ui.SURFACE, 32f, Ui.STROKE, 1f)
+        // Liste : rangée de filtres (la loupe en tête) puis la grille.
+        listBox = Ui.vertical(c)
+        val chipRow = Ui.horizontal(c, Gravity.CENTER_VERTICAL)
+        if (favorites && (a.prefs.siteLinked || a.prefs.siteCommunity)) {
+            refreshBtn = Ui.button(c, tr("Actualiser"), Ui.Style.SECONDARY, Icon.Kind.SYNC, height = 46, textSize = 16f) { refreshFavorites() }
+                .also { chipRow.addView(it, Ui.lp(Ui.WRAP, Ui.WRAP, r = 10)) }
+        }
+        val scroller = HorizontalScrollView(c).apply { isHorizontalScrollBarEnabled = false; overScrollMode = View.OVER_SCROLL_NEVER }
+        chips = Ui.horizontal(c, Gravity.CENTER_VERTICAL)
+        scroller.addView(chips)
+        chipRow.addView(scroller, Ui.lp(0, Ui.WRAP, 1f))
+        listBox.addView(chipRow, Ui.lp(b = 16))
+        count = Ui.text(c, "", 17f, Ui.TEXT2)
+
+        // Recherche : grand champ, nombre de résultats, suggestions ; OK ramène à la grille filtrée.
+        searchBox = Ui.vertical(c)
+        val bar = Ui.horizontal(c, Gravity.CENTER_VERTICAL)
+        val field = Ui.horizontal(c, Gravity.CENTER_VERTICAL)
+        field.setPadding(Ui.u(22), 0, Ui.u(22), 0)
+        field.background = Ui.round(Ui.SURFACE, 32f, Ui.ACCENT, 2f)
         field.addView(Icon(c, Icon.Kind.SEARCH, Ui.TEXT2), LinearLayout.LayoutParams(Ui.u(26), Ui.u(26)).apply { rightMargin = Ui.u(12) })
         input = EditText(c).apply {
             setTextSize(TypedValue.COMPLEX_UNIT_PX, Ui.uf(21f))
@@ -97,28 +118,18 @@ class RecipesScreen(
                     view.postDelayed(runSearch, 120)
                 }
             })
-            setOnEditorActionListener { _, _, _ -> a.hideKeyboard(); true }
+            setOnEditorActionListener { _, _, _ -> closeSearch(); true }
         }
         field.addView(input, LinearLayout.LayoutParams(0, Ui.MATCH, 1f))
-        val clear = Icon(c, Icon.Kind.CLOSE, Ui.TEXT2)
-        clear.setPadding(Ui.u(10), Ui.u(10), Ui.u(10), Ui.u(10))
-        clear.setOnClickListener { input.setText("") }
-        field.addView(clear, LinearLayout.LayoutParams(Ui.u(48), Ui.u(48)))
+        field.addView(count, Ui.lp(Ui.WRAP, Ui.WRAP, l = 12))
         bar.addView(field, LinearLayout.LayoutParams(0, Ui.u(64), 1f))
-        count = Ui.text(c, "", 17f, Ui.TEXT2)
-        bar.addView(count, Ui.lp(Ui.WRAP, Ui.WRAP, l = 18))
-        if (favorites && (a.prefs.siteLinked || a.prefs.siteCommunity)) {
-            // Favoris : reprendre tout de suite ceux du compte toqueapp.org (et les recettes du site).
-            // Ce fork ne relie pas de compte et ne reçoit plus la communauté : bouton masqué.
-            refreshBtn = Ui.button(c, tr("Actualiser"), Ui.Style.SECONDARY, Icon.Kind.SYNC, height = 64, textSize = 18f) { refreshFavorites() }
-                .also { bar.addView(it, Ui.lp(Ui.WRAP, Ui.WRAP, l = 16)) }
-        }
-        root.addView(bar)
-
-        val scroller = HorizontalScrollView(c).apply { isHorizontalScrollBarEnabled = false; overScrollMode = View.OVER_SCROLL_NEVER }
-        chips = Ui.horizontal(c)
-        scroller.addView(chips)
-        root.addView(scroller, Ui.lp(t = 12, b = 12))
+        val cancel = roundIcon(Icon.Kind.CLOSE, 64, tr("Effacer")) { clearSearch() }
+        bar.addView(cancel, Ui.lp(Ui.u(64), Ui.u(64), l = 12))
+        searchBox.addView(bar)
+        suggestions = Ui.vertical(c)
+        searchBox.addView(suggestions, Ui.lp(t = 14))
+        searchBox.visibility = View.GONE
+        root.addView(searchBox)
 
         val body = FrameLayout(c)
         grid = GridView(c).apply {
@@ -150,12 +161,111 @@ class RecipesScreen(
         emptyText = Ui.text(c, "", 21f, Ui.TEXT2).apply { gravity = Gravity.CENTER; setLineSpacing(0f, 1.2f) }
         empty.addView(emptyText, Ui.lp(Ui.u(640), Ui.WRAP, t = 16))
         body.addView(empty, Ui.flp())
-        root.addView(body, LinearLayout.LayoutParams(Ui.MATCH, 0, 1f))
+        listBox.addView(body, LinearLayout.LayoutParams(Ui.MATCH, 0, 1f))
+        root.addView(listBox, LinearLayout.LayoutParams(Ui.MATCH, 0, 1f))
         return root
+    }
+
+    /** Bouton rond à icône, du style des filtres. */
+    private fun roundIcon(kind: Icon.Kind, size: Int, label: String, onClick: () -> Unit): View {
+        val b = FrameLayout(c)
+        b.background = Ui.pressable(Ui.round(Ui.SURFACE2, size / 2f, Ui.STROKE, 1f), size / 2f)
+        b.contentDescription = label
+        b.isClickable = true
+        b.setOnClickListener { onClick() }
+        b.addView(Icon(c, kind, Ui.TEXT2), Ui.flp(Ui.u(size * 22 / 46), Ui.u(size * 22 / 46), Gravity.CENTER))
+        return b
+    }
+
+    private fun openSearch() {
+        searching = true
+        listBox.visibility = View.GONE
+        searchBox.visibility = View.VISIBLE
+        input.setText(query)
+        input.setSelection(input.text.length)
+        refreshSuggestions()
+        input.requestFocus()
+        (c.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager).showSoftInput(input, InputMethodManager.SHOW_IMPLICIT)
+    }
+
+    /** OK (ou Retour) : on revient à la grille, filtrée par ce qui a été tapé. */
+    private fun closeSearch() {
+        searching = false
+        a.hideKeyboard()
+        query = input.text.toString().trim()
+        searchBox.visibility = View.GONE
+        listBox.visibility = View.VISIBLE
+        buildChips()
+        search()
+    }
+
+    private fun clearSearch() {
+        input.setText("")
+        query = ""
+        if (searching) closeSearch() else { buildChips(); search() }
+    }
+
+    override fun canLeave(proceed: () -> Unit): Boolean {
+        if (!searching) return true
+        closeSearch()
+        return false
+    }
+
+    /** Les 4 premiers résultats, sur deux colonnes, pendant la frappe. */
+    private fun refreshSuggestions() {
+        suggestions.removeAllViews()
+        if (query.isBlank()) return
+        val top = results.take(4)
+        for (i in top.indices step 2) {
+            val row = Ui.horizontal(c)
+            for (hit in top.subList(i, minOf(i + 2, top.size))) {
+                val e = hit.entry
+                val item = Ui.horizontal(c, Gravity.CENTER_VERTICAL)
+                item.setPadding(Ui.u(8), Ui.u(6), Ui.u(12), Ui.u(6))
+                item.background = Ui.pressable(Ui.round(Ui.SURFACE, 16f), 16f)
+                item.isClickable = true
+                item.setOnClickListener {
+                    a.app.recipes.get(e.id)?.let { r -> closeSearch(); a.push(RecipeScreen(a, r)) }
+                }
+                val img = ImageView(c).apply {
+                    scaleType = ImageView.ScaleType.CENTER_CROP
+                    background = Ui.gradient(Ui.placeholderColors(e.title), 0f)
+                    clipToOutline = true
+                    outlineProvider = object : android.view.ViewOutlineProvider() {
+                        override fun getOutline(view: View, outline: android.graphics.Outline) {
+                            outline.setRoundRect(0, 0, view.width, view.height, Ui.uf(12f))
+                        }
+                    }
+                }
+                ImageLoader.load(img, a.app.recipes.imageFile(e.image), Ui.u(120))
+                item.addView(img, LinearLayout.LayoutParams(Ui.u(52), Ui.u(52)))
+                item.addView(Ui.ellipsize(Ui.text(c, e.title, 18f, Ui.TEXT)), Ui.lp(0, Ui.WRAP, 1f, l = 14))
+                row.addView(item, Ui.lp(0, Ui.WRAP, 1f, r = if (row.childCount == 0) 7 else 0, l = if (row.childCount == 0) 0 else 7))
+            }
+            suggestions.addView(row, Ui.lp(b = 10))
+        }
     }
 
     private fun buildChips() {
         chips.removeAllViews()
+        queryChipText = null
+        if (query.isBlank()) {
+            chips.addView(roundIcon(Icon.Kind.SEARCH, 46, tr("Rechercher une recette…")) { openSearch() }, Ui.lp(Ui.u(46), Ui.u(46), r = 10))
+        } else {
+            // La recherche devient un filtre : la toucher la rouvre, la croix l'efface.
+            val q = Ui.horizontal(c, Gravity.CENTER_VERTICAL)
+            q.setPadding(Ui.u(16), 0, Ui.u(18), 0)
+            q.background = Ui.pressable(Ui.round(Ui.ACCENT, 40f), 40f)
+            q.isClickable = true
+            q.setOnClickListener { openSearch() }
+            q.addView(Icon(c, Icon.Kind.SEARCH, Ui.ON_ACCENT), LinearLayout.LayoutParams(Ui.u(20), Ui.u(20)).apply { rightMargin = Ui.u(8) })
+            val t = Ui.text(c, "", 17f, Ui.ON_ACCENT, Ui.MEDIUM)
+            queryChipText = t
+            q.addView(t)
+            chips.addView(q, Ui.lp(Ui.WRAP, Ui.u(46), r = 10))
+            chips.addView(roundIcon(Icon.Kind.CLOSE, 46, tr("Effacer")) { clearSearch() }, Ui.lp(Ui.u(46), Ui.u(46), r = 10))
+            refreshQueryChip()
+        }
         fun chip(label: String, selected: Boolean, f: RecipeFilter, u: Usage = Usage.NONE) {
             chips.addView(Ui.toggleChip(c, label, selected) { filter = f; usage = u; buildChips(); search() }, Ui.lp(Ui.WRAP, Ui.WRAP, r = 10))
         }
@@ -196,14 +306,20 @@ class RecipesScreen(
                 results = hits
                 adapter.notifyDataSetChanged()
                 refreshEmpty()
+                refreshQueryChip()
+                if (searching) refreshSuggestions()
             }
         }
+    }
+
+    private fun refreshQueryChip() {
+        queryChipText?.text = "« " + query.trim() + " » · " + results.size
     }
 
     private fun refreshEmpty() {
         val repo = a.app.recipes
         val none = repo.loaded && repo.count == 0
-        count.text = if (results.isEmpty()) "" else if (results.size == 1) tr("1 recette") else tr("%d recettes", results.size)
+        count.text = if (results.isEmpty() || query.isBlank()) "" else if (results.size == 1) tr("1 recette") else tr("%d recettes", results.size)
         empty.visibility = if (results.isEmpty() && repo.loaded) View.VISIBLE else View.GONE
         emptyText.text = when {
             none && a.prefs.mode == Prefs.Mode.HARDWARE ->
@@ -238,19 +354,12 @@ class RecipesScreen(
         }
     }
 
-    private var searchFocused = false
-
     override fun onShow() {
         buildChips()
         search()
         unsub = a.app.recipes.onChange { buildChips(); search() }
         // Clavier ouvert d'office seulement à la première ouverture (recherche lancée de l'accueil),
         // pas en revenant d'une recette.
-        if (focusSearch && !searchFocused) view.postDelayed({
-            searchFocused = true
-            input.requestFocus()
-            (c.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager).showSoftInput(input, InputMethodManager.SHOW_IMPLICIT)
-        }, 150)
     }
 
     override fun onHide() {
