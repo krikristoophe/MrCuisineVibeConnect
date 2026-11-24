@@ -6,7 +6,6 @@ import { Icon, Menu, RecipeCard, useApi, type RecipeSummary } from "../ui";
 const FILTERS = [
   { key: "", label: "Toutes" },
   { key: "robot", label: "Au robot" },
-  { key: "autre", label: "Autre modèle" },
   { key: "sans", label: "Sans robot" },
   { key: "rapide", label: "30 min max" },
 ];

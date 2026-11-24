@@ -75,9 +75,9 @@ export async function searchRecipes(env: Env, opts: { q?: string; filter?: strin
     where.push("search LIKE ?");
     args.push(`%${w}%`);
   }
-  if (opts.filter === "robot") where.push("uses_robot = 1");
+  // « Au robot » : toute recette prévue pour un Monsieur Cuisine, quel que soit le modèle.
+  if (opts.filter === "robot") where.push("(uses_robot = 1 OR devices != '')");
   if (opts.filter === "sans") where.push("devices = '' AND uses_robot = 0");
-  if (opts.filter === "autre") where.push("devices != '' AND uses_robot = 0");
   if (opts.filter === "rapide") where.push("total_minutes > 0 AND total_minutes <= 30");
   if (opts.category) { where.push("category = ?"); args.push(opts.category); }
   const order = opts.q ? "CASE WHEN search LIKE ? THEN 0 ELSE 1 END, rating_count DESC" : "rating_count DESC";

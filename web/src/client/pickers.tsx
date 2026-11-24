@@ -26,7 +26,7 @@ export function RecipePicker({ title, onPick, onClose }: { title: string; onPick
         {list.map((r) => (
           <button class="pick" onClick={() => onPick(r)}>
             <Img src={r.image} class="pick-img" />
-            <span><b>{r.title}</b><span class="muted">{[minutes(r.totalMinutes), r.usesRobot ? "" : robotLabel(r).toLowerCase()].filter(Boolean).join(" · ")}</span></span>
+            <span><b>{r.title}</b><span class="muted">{[minutes(r.totalMinutes), robotLabel(r) === "Sans robot" ? "sans robot" : ""].filter(Boolean).join(" · ")}</span></span>
           </button>
         ))}
         {!list.length && <p class="muted">{q.trim() ? "Aucune recette." : "Pas encore de favoris : cherchez une recette."}</p>}

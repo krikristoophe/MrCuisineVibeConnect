@@ -20,7 +20,7 @@ export function Favorites({ me: _me }: { me: Me }) {
           <div class="panel fav">
             <a class="fav-link" href={`/recettes/${encodeURIComponent(f.id)}`}>
               <Img src={f.image} class="fav-img" />
-              <span><b>{f.title}</b><span class="muted small">{f.cooked ? `Cuisinée ${f.cooked} fois · ${ago(f.lastCooked)}` : "Jamais cuisinée"}{f.totalMinutes ? ` · ${minutes(f.totalMinutes)}` : ""}{f.usesRobot ? "" : ` · ${robotLabel(f).toLowerCase()}`}</span></span>
+              <span><b>{f.title}</b><span class="muted small">{f.cooked ? `Cuisinée ${f.cooked} fois · ${ago(f.lastCooked)}` : "Jamais cuisinée"}{f.totalMinutes ? ` · ${minutes(f.totalMinutes)}` : ""}{robotLabel(f) === "Sans robot" ? " · sans robot" : ""}</span></span>
             </a>
             <button class="round accent" aria-label={`Planifier ${f.title}`} onClick={() => setPlan(f)}><Icon.plan /></button>
           </div>

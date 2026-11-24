@@ -1,4 +1,5 @@
-import { useState } from "preact/hooks";
+import type { ComponentChildren } from "preact";
+import { useEffect, useRef, useState } from "preact/hooks";
 import type { Me } from "../app";
 import { api } from "../api";
 import { navigate } from "../router";
@@ -12,6 +13,39 @@ interface Dto { recipe: Recipe; favorite: boolean; usesRobot: boolean; devices: 
 async function copyLink(url: string) {
   try { await navigator.clipboard.writeText(url); toast("Lien copié"); }
   catch { prompt("Lien de la recette", url); }
+}
+
+/**
+ * Téléphone : la photo en couverture, bord à bord, qui se réduit en barre (avec le titre) quand on
+ * fait défiler. Les boutons restent par-dessus. Masquée sur tablette et ordinateur (voir CSS).
+ */
+function Cover({ image, title, actions }: { image: string | null; title: string; actions: ComponentChildren }) {
+  const el = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const cover = el.current!;
+    let frame = 0;
+    const update = () => {
+      frame = 0;
+      const full = cover.parentElement!.offsetHeight; // hauteur réservée (couverture dépliée)
+      const min = cover.querySelector<HTMLElement>(".cover-bar")!.offsetHeight;
+      const h = Math.max(min, full - window.scrollY);
+      cover.style.height = `${h}px`;
+      cover.style.setProperty("--p", String(Math.min(1, (full - h) / Math.max(1, full - min))));
+    };
+    const on = () => { if (!frame) frame = requestAnimationFrame(update); };
+    update();
+    window.addEventListener("scroll", on, { passive: true });
+    window.addEventListener("resize", on);
+    return () => { window.removeEventListener("scroll", on); window.removeEventListener("resize", on); cancelAnimationFrame(frame); };
+  }, []);
+  return (
+    <div class="cover-space">
+      <div class="cover" ref={el}>
+        <div class="cover-clip">{image ? <img src={image} alt="" class="cover-img" fetchpriority="high" referrerpolicy="no-referrer" /> : <Img src={null} class="cover-img" />}<div class="cover-shade" /></div>
+        <div class="cover-bar">{actions}<span class="cover-title">{title}</span></div>
+      </div>
+    </div>
+  );
 }
 
 export function RecipePage({ me: _me, id }: { me: Me; id: string }) {
@@ -57,10 +91,8 @@ export function RecipePage({ me: _me, id }: { me: Me; id: string }) {
     </ol>
   );
 
-  return (
-    <main class="page recipe">
-      <div class="row-between topbar">
-        <a class="round" href="/recettes" aria-label="Retour" onClick={(e) => { if (history.length > 1) { e.preventDefault(); history.back(); } }}><Icon.back /></a>
+  const back = <a class="round" href="/recettes" aria-label="Retour" onClick={(e) => { if (history.length > 1) { e.preventDefault(); history.back(); } }}><Icon.back /></a>;
+  const actions = (
         <div class="row">
           <button class={`round ${data.favorite ? "fav-on" : ""}`} aria-label={data.favorite ? "Retirer des favoris" : "Ajouter aux favoris"} aria-pressed={data.favorite} onClick={toggleFav}>{Icon.star(data.favorite)}</button>
           <Menu items={[
@@ -70,7 +102,12 @@ export function RecipePage({ me: _me, id }: { me: Me; id: string }) {
             { label: "Supprimer", danger: true, onClick: remove },
           ]} />
         </div>
-      </div>
+  );
+
+  return (
+    <main class="page recipe">
+      <Cover image={r.image ?? null} title={r.title} actions={<>{back}<span class="grow" />{actions}</>} />
+      <div class="row-between topbar recipe-top">{back}{actions}</div>
       <div class="recipe-grid">
         <div class="recipe-side">
           <Img src={r.image ?? null} class="recipe-img" />

@@ -111,8 +111,7 @@ export interface RecipeSummary { id: string; title: string; image: string | null
 
 /** « Au robot » = faisable sur le Connect ; les recettes d'autres modèles ne sont pas « sans robot ». */
 export function robotLabel(r: { usesRobot: boolean; devices?: string[] }): string {
-  if (r.usesRobot || r.devices?.includes("MC2.0")) return "Au robot";
-  return r.devices?.length ? "Autre modèle de robot" : "Sans robot";
+  return r.usesRobot || r.devices?.length ? "Au robot" : "Sans robot";
 }
 
 export function RecipeCard({ r }: { r: RecipeSummary }) {
@@ -120,7 +119,7 @@ export function RecipeCard({ r }: { r: RecipeSummary }) {
     <a class="card" href={`/recettes/${encodeURIComponent(r.id)}`}>
       <Img src={r.image} class="card-img" />
       <span class="card-title">{r.title}</span>
-      <span class="card-meta">{[r.ratingCount ? `★ ${r.rating.toFixed(1).replace(".", ",")}` : "", minutes(r.totalMinutes), r.usesRobot ? "" : robotLabel(r).toLowerCase()].filter(Boolean).join(" · ")}</span>
+      <span class="card-meta">{[r.ratingCount ? `★ ${r.rating.toFixed(1).replace(".", ",")}` : "", minutes(r.totalMinutes), robotLabel(r) === "Sans robot" ? "sans robot" : ""].filter(Boolean).join(" · ")}</span>
       {r.favorite && <span class="card-fav" aria-label="Favori">{Icon.star(true)}</span>}
     </a>
   );
