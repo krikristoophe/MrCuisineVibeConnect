@@ -75,7 +75,7 @@ class CookScreen(a: MainActivity, private val recipe: Recipe, startStep: Int) : 
 
     override fun build(): View {
         val root = Ui.vertical(c)
-        root.setPadding(Ui.u(24), Ui.u(4), Ui.u(24), Ui.u(18))
+        Ui.screenPadding(root, titled = true)
         segments = Ui.horizontal(c)
         root.addView(segments, Ui.lp(Ui.MATCH, Ui.u(6), b = 14))
 

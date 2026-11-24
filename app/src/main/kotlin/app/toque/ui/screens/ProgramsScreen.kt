@@ -79,7 +79,7 @@ class ProgramsScreen(a: MainActivity) : Screen(a) {
 
     override fun build(): View {
         val root = Ui.vertical(c)
-        root.setPadding(Ui.u(24), Ui.u(8), Ui.u(24), Ui.u(20))
+        Ui.screenPadding(root, titled = true)
         // 4 cartes par ligne. Le Connect en a 4 (toute la hauteur) ; le Smart plus, en lignes qui défilent.
         val many = progs.size > 4
         val rows = Ui.vertical(c)

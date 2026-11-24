@@ -36,7 +36,7 @@ class SiteLinkScreen(a: MainActivity) : Screen(a) {
 
     override fun build(): View {
         val col = Ui.vertical(c)
-        col.setPadding(Ui.u(24), Ui.u(6), Ui.u(24), Ui.u(24))
+        Ui.screenPadding(col, titled = true)
         col.addView(Ui.text(c, tr("Le compte est facultatif. Relié, le robot reçoit vos favoris du site et vous pouvez publier vos recettes depuis le robot."),
             17f, Ui.TEXT2).apply { setLineSpacing(0f, 1.15f) }, Ui.lp(b = 14))
         val columns = Ui.horizontal(c, Gravity.TOP)

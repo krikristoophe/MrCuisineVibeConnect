@@ -82,7 +82,7 @@ class ManualScreen(
 
     override fun build(): View {
         val root = Ui.horizontal(c, Gravity.TOP)
-        root.setPadding(Ui.u(18), Ui.u(if (onPick != null) 8 else 20), Ui.u(30), Ui.u(20))
+        Ui.screenPadding(root, titled = onPick != null)
         val left = Ui.vertical(c)
         val cards = Ui.horizontal(c)
         timeCard = ValueCard(c, tr("Durée"), Icon.Kind.CLOCK)

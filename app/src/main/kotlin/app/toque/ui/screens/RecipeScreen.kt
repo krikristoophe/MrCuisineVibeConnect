@@ -66,7 +66,7 @@ class RecipeScreen(a: MainActivity, val recipe: Recipe) : Screen(a) {
 
     override fun build(): View {
         val root = Ui.horizontal(c, Gravity.TOP)
-        root.setPadding(Ui.u(18), Ui.u(20), Ui.u(30), Ui.u(18))
+        Ui.screenPadding(root, titled = false)
 
         // ---- colonne gauche : photo, durée et note, portions, catégorie et tags, Cuisiner / Favori
         val left = Ui.vertical(c)

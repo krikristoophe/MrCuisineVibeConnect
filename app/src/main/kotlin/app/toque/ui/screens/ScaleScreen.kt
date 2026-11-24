@@ -22,7 +22,7 @@ class ScaleScreen(a: MainActivity) : Screen(a) {
 
     override fun build(): View {
         val root = Ui.vertical(c, Gravity.CENTER_HORIZONTAL)
-        root.setPadding(Ui.u(24), Ui.u(10), Ui.u(24), Ui.u(24))
+        Ui.screenPadding(root, titled = true)
         root.addView(Ui.spacer(c, weight = 1f), LinearLayout.LayoutParams(1, 0, 1f))
         val row = Ui.horizontal(c, Gravity.BOTTOM)
         value = Ui.text(c, "—", 200f, Ui.TEXT, Ui.THIN)

@@ -145,6 +145,14 @@ object Ui {
             ellipsize = TextUtils.TruncateAt.END
         }
 
+    /**
+     * Marges d'un écran, les mêmes partout : 30 en haut, à droite et en bas (le cadre du robot
+     * cache les bords), 18 à gauche contre le menu latéral. Avec un titre au-dessus, le haut est
+     * déjà pris par le titre : 12 seulement.
+     */
+    fun screenPadding(v: View, titled: Boolean, bottom: Boolean = true) =
+        v.setPadding(u(18), u(if (titled) 12 else 30), u(30), if (bottom) u(30) else 0)
+
     /** Durée en minutes, lisible : « 45 min », « 1h », « 1h40 ». */
     fun minutes(minutes: Int): String = when {
         minutes < 60 -> "$minutes min"

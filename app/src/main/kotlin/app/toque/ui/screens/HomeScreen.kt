@@ -49,7 +49,7 @@ class HomeScreen(a: MainActivity) : Screen(a) {
 
     override fun build(): View {
         val page = Ui.vertical(c)
-        page.setPadding(Ui.u(18), Ui.u(22), Ui.u(30), Ui.u(30))
+        Ui.screenPadding(page, titled = false)
 
         // En-tête : bonjour, heure, date à gauche ; la recette en cours à droite.
         val head = Ui.horizontal(c, Gravity.CENTER_VERTICAL)

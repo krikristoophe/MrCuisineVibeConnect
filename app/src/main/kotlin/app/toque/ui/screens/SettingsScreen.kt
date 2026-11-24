@@ -57,7 +57,7 @@ class SettingsScreen(a: MainActivity) : Screen(a) {
     override fun build(): View {
         // Menu à gauche, posé sur le fond (comme la page Recettes) ; contenu à droite dans une carte.
         val root = Ui.horizontal(c, Gravity.TOP)
-        root.setPadding(Ui.u(24), Ui.u(6), Ui.u(24), Ui.u(24))
+        Ui.screenPadding(root, titled = true)
         val nav = Ui.vertical(c)
         root.addView(nav, LinearLayout.LayoutParams(Ui.u(250), Ui.MATCH).apply { rightMargin = Ui.u(18) })
         val card = Ui.card(c, 24f)

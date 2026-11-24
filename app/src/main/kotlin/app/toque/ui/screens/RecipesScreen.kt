@@ -72,7 +72,7 @@ class RecipesScreen(
 
     override fun build(): View {
         val root = Ui.vertical(c)
-        root.setPadding(Ui.u(18), Ui.u(20), Ui.u(30), 0)   // pas de titre au-dessus : marge du haut
+        Ui.screenPadding(root, titled = false, bottom = false)   // la grille porte la marge du bas
 
         val bar = Ui.horizontal(c)
         val field = Ui.horizontal(c)
@@ -129,7 +129,7 @@ class RecipesScreen(
             selector = android.graphics.drawable.ColorDrawable(0)
             isVerticalScrollBarEnabled = false
             overScrollMode = View.OVER_SCROLL_NEVER
-            setPadding(0, 0, 0, Ui.u(20))
+            setPadding(0, 0, 0, Ui.u(30))
             clipToPadding = false
             adapter = this@RecipesScreen.adapter
             setOnItemClickListener { _, _, pos, _ ->

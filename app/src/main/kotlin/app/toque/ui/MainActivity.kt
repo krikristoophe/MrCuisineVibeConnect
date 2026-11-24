@@ -94,7 +94,7 @@ class MainActivity : Activity() {
         frame.addView(topBar, LinearLayout.LayoutParams(Ui.u(80), Ui.MATCH))
         val column = Ui.vertical(this)
         titleView = Ui.ellipsize(Ui.text(this, "", 22f, Ui.TEXT, Ui.MEDIUM))
-        titleView.setPadding(Ui.u(24), Ui.u(14), Ui.u(30), Ui.u(2))
+        titleView.setPadding(Ui.u(18), Ui.u(30), Ui.u(30), 0)   // même marge du haut que les écrans sans titre
         column.addView(titleView, Ui.lp(Ui.MATCH, Ui.WRAP))
         content = FrameLayout(this)
         column.addView(content, Ui.lp(Ui.MATCH, 0, 1f))

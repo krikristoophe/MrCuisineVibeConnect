@@ -25,7 +25,7 @@ class DiagnosticsScreen(a: MainActivity) : Screen(a) {
 
     override fun build(): View {
         val root = Ui.horizontal(c, Gravity.TOP)
-        root.setPadding(Ui.u(24), Ui.u(6), Ui.u(24), Ui.u(20))
+        Ui.screenPadding(root, titled = true)
         val left = Ui.card(c, 22f)
         table = Ui.text(c, "", 16f, Ui.TEXT).apply { typeface = Typeface.MONOSPACE; setLineSpacing(0f, 1.2f) }
         left.addView(Ui.scroll(c, table), Ui.lp(Ui.MATCH, Ui.MATCH))
@@ -95,7 +95,7 @@ class LogScreen(a: MainActivity) : Screen(a) {
 
     override fun build(): View {
         val root = Ui.vertical(c)
-        root.setPadding(Ui.u(24), Ui.u(6), Ui.u(24), Ui.u(20))
+        Ui.screenPadding(root, titled = true)
         val card = Ui.card(c, 22f)
         text = Ui.text(c, "", 14f, Ui.TEXT2).apply { typeface = Typeface.MONOSPACE; setTextIsSelectable(true) }
         scroll = Ui.scroll(c, text)
@@ -131,7 +131,7 @@ class KnobSetupScreen(a: MainActivity) : Screen(a) {
 
     override fun build(): View {
         val root = Ui.vertical(c, Gravity.CENTER_HORIZONTAL)
-        root.setPadding(Ui.u(40), Ui.u(20), Ui.u(40), Ui.u(20))
+        Ui.screenPadding(root, titled = true)
         root.addView(Ui.text(c, tr("Le bouton rotatif du robot règle les durées, les vitesses et les températures. Ce réglage ne se fait qu'une fois."),
             20f, Ui.TEXT2).apply { gravity = Gravity.CENTER; setLineSpacing(0f, 1.2f) }, Ui.lp(Ui.MATCH, Ui.WRAP))
         root.addView(Ui.spacer(c, weight = 1f), LinearLayout.LayoutParams(1, 0, 1f))
@@ -214,7 +214,7 @@ class KnobScreen(a: MainActivity) : Screen(a) {
 
     override fun build(): View {
         val root = Ui.vertical(c, Gravity.CENTER_HORIZONTAL)
-        root.setPadding(Ui.u(40), Ui.u(20), Ui.u(40), Ui.u(20))
+        Ui.screenPadding(root, titled = true)
         info = Ui.text(c, "", 20f, Ui.TEXT2).apply { gravity = Gravity.CENTER; setLineSpacing(0f, 1.2f) }
         root.addView(info, Ui.lp(Ui.MATCH, Ui.WRAP))
         last = Ui.text(c, "—", 60f, Ui.TEXT, Ui.THIN)

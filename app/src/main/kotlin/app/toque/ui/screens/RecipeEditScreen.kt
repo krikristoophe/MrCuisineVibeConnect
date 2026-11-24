@@ -117,7 +117,7 @@ class RecipeEditScreen(a: MainActivity, start: Recipe, private val isNew: Boolea
 
     override fun build(): View {
         val root = Ui.horizontal(c, Gravity.TOP)
-        root.setPadding(Ui.u(24), Ui.u(6), Ui.u(24), Ui.u(18))
+        Ui.screenPadding(root, titled = true)
 
         // ---- gauche : la recette et ses ingrédients
         val left = Ui.vertical(c)
@@ -434,7 +434,7 @@ class StepEditScreen(
 
     override fun build(): View {
         val root = Ui.horizontal(c, Gravity.TOP)
-        root.setPadding(Ui.u(24), Ui.u(6), Ui.u(24), Ui.u(18))
+        Ui.screenPadding(root, titled = true)
 
         val left = Ui.vertical(c)
         left.addView(Edit.label(c, tr("Ce qu'il faut faire")))
