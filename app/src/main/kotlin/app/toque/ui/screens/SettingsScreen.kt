@@ -15,7 +15,6 @@ import app.toque.TimeSync
 import app.toque.core.i18n.I18n
 import app.toque.core.i18n.tr
 import app.toque.core.time.ZoneLookup
-import app.toque.core.update.Release
 import app.toque.recipes.LidlSync
 import app.toque.core.recipes.McOnline
 import app.toque.recipes.OnlineSync
@@ -27,8 +26,6 @@ import app.toque.ui.Icon
 import app.toque.ui.MainActivity
 import app.toque.ui.Screen
 import app.toque.ui.Ui
-import app.toque.ui.UpdateFlow
-import app.toque.update.Updater
 
 class SettingsScreen(a: MainActivity) : Screen(a) {
     override val title = tr("Réglages")
@@ -40,13 +37,6 @@ class SettingsScreen(a: MainActivity) : Screen(a) {
     private lateinit var timeText: TextView
     private var settingTime = false
 
-    private enum class Upd { IDLE, CHECKING, UP_TO_DATE, AVAILABLE, ERROR }
-    private val updater by lazy { Updater(a) }
-    private lateinit var updText: TextView
-    private lateinit var updButtons: LinearLayout
-    private var upd = Upd.IDLE
-    private var release: Release? = null
-    private var updMessage = ""
     private lateinit var accountText: TextView
     private lateinit var accountButtons: LinearLayout
     private lateinit var siteText: TextView
@@ -188,16 +178,6 @@ class SettingsScreen(a: MainActivity) : Screen(a) {
             a.app.site.sync { r -> r?.let { a.toast(it.message, if (it.ok) Ui.OK else Ui.WARN) } }
         }
         community.addView(siteBtn, Ui.lp(Ui.WRAP, Ui.WRAP, t = 12))
-
-        // ---- Mises à jour
-        val updates = section(left, tr("Mises à jour"), Icon.Kind.INFO)
-        updText = Ui.text(c, "", 16f, Ui.TEXT2).apply { setLineSpacing(0f, 1.15f) }
-        updates.addView(updText)
-        updButtons = Ui.horizontal(c)
-        updates.addView(updButtons, Ui.lp(t = 12))
-        updates.addView(toggle(tr("Prévenir quand une version sort"), a.prefs.updateAlerts) { a.prefs.updateAlerts = it }, Ui.lp(t = 10))
-        a.updates.available?.let { release = it; upd = Upd.AVAILABLE }
-        renderUpdate()
 
         // ---- Outils
         val tools = section(right, tr("Outils"), Icon.Kind.SETTINGS)
@@ -490,63 +470,6 @@ class SettingsScreen(a: MainActivity) : Screen(a) {
         val repo = a.app.recipes
         val n = if (repo.loaded) repo.index.entries.count { CommunityRecipes.isCommunity(it.id) } else 0
         siteText.text = first + if (repo.loaded) "\n" + tr("%d recettes de la communauté dans Toque", n) else ""
-    }
-
-    // ------------------------------------------------------------------ mises à jour
-
-    private fun renderUpdate() {
-        val r = release
-        val installed = tr("Version installée : %s", updater.installedVersion)
-        updText.setTextColor(if (upd == Upd.ERROR) Ui.WARN else if (upd == Upd.AVAILABLE) Ui.TEXT else Ui.TEXT2)
-        updText.text = when (upd) {
-            Upd.IDLE -> installed + "\n" + tr("Les nouvelles versions sont publiées sur GitHub.")
-            Upd.CHECKING -> installed + "\n" + tr("Recherche sur GitHub…")
-            Upd.UP_TO_DATE -> installed + "\n" + tr("Toque est à jour.")
-            Upd.AVAILABLE -> installed + "\n" + tr("Nouvelle version disponible : %s", r?.version) +
-                UpdateFlow.notes(r).let { if (it.isEmpty()) "" else "\n\n" + it }
-            Upd.ERROR -> installed + "\n" + updMessage
-        }
-        updButtons.removeAllViews()
-        when (upd) {
-            Upd.IDLE, Upd.UP_TO_DATE, Upd.ERROR ->
-                updButtons.addView(Ui.button(c, tr("Rechercher une mise à jour"), Ui.Style.PRIMARY, Icon.Kind.SYNC, height = 58) { checkUpdate() })
-            Upd.AVAILABLE -> {
-                updButtons.addView(Ui.button(c, tr("Installer la version %s", r?.version), Ui.Style.PRIMARY, Icon.Kind.CHECK, height = 58) { installUpdate() },
-                    Ui.lp(Ui.WRAP, Ui.WRAP, r = 10))
-                updButtons.addView(Ui.button(c, tr("Plus tard"), Ui.Style.GHOST, height = 58) { upd = Upd.IDLE; renderUpdate() })
-            }
-            Upd.CHECKING -> {}
-        }
-    }
-
-    private fun checkUpdate() {
-        if (upd == Upd.CHECKING) return
-        upd = Upd.CHECKING
-        renderUpdate()
-        Thread {
-            try {
-                val r = updater.latest()
-                view.post {
-                    release = r
-                    val newer = updater.isNewer(r)
-                    a.updates.known(r, newer)
-                    upd = if (newer) Upd.AVAILABLE else Upd.UP_TO_DATE
-                    renderUpdate()
-                    if (upd == Upd.AVAILABLE) installUpdate()
-                }
-            } catch (e: Updater.Failure) {
-                view.post { upd = Upd.ERROR; updMessage = e.message ?: tr("Erreur"); renderUpdate() }
-            } catch (e: Exception) {
-                a.app.log.crash("maj", e)
-                view.post { upd = Upd.ERROR; updMessage = tr("Erreur inattendue : %s", e.message); renderUpdate() }
-            }
-        }.start()
-    }
-
-    /** Propose l'installation dans une fenêtre (toujours visible, même si la carte est hors écran). */
-    private fun installUpdate() {
-        val r = release ?: return
-        UpdateFlow.offer(a, r) { msg -> upd = Upd.ERROR; updMessage = msg; renderUpdate() }
     }
 
     /** Désabonnement du suivi des recettes (le nombre s'affiche une fois la base chargée). */

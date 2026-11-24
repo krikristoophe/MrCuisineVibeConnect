@@ -263,11 +263,9 @@ class Prefs(context: Context) {
     /** Son joué quand la quantité à peser est atteinte (voir Sounds.WEIGH_SOUNDS). */
     val weighSound: String get() = "gong"
     /** Prévenir quand une nouvelle version de Toque est publiée (au démarrage et au réveil). */
-    var updateAlerts: Boolean
-        get() = p.getBoolean("updateAlerts", true)
-        set(v) {
-            p.edit().putBoolean("updateAlerts", v).commit()
-        }
+    // Désactivé dans ce fork : les versions du dépôt d'origine écraseraient ses modifications.
+    // Faux = aucune recherche sur GitHub, ni au démarrage ni au réveil, et aucune alerte.
+    val updateAlerts: Boolean get() = false
 
     var lastUpdateCheckMs: Long
         get() = p.getLong("lastUpdateCheckMs", 0)
