@@ -19,14 +19,13 @@ import app.toque.ui.screens.SettingsScreen
  * Menu latéral (essai, à la manière du Thermomix TM7) : un rail fin d'icônes à la place de la barre
  * du haut, pour garder toute la hauteur de l'écran. Retour en haut, les rubriques principales au
  * milieu, et en bas une grille qui ouvre les autres (programmes, balance, rinçage, réglages).
- * Seule alerte affichée : le couvercle ouvert, et le bol chaud.
+ * Seule alerte affichée : le bol chaud (à partir de 50 °C).
  */
 class SideRail(private val a: MainActivity) : LinearLayout(a) {
     private enum class Section { HOME, SEARCH, RECIPES, MANUAL, MORE, NONE }
 
     private val back = Icon(a, Icon.Kind.BACK, Ui.TEXT)
     private val items = LinkedHashMap<Section, Icon>()
-    private val lid = Icon(a, Icon.Kind.LID, Ui.WARN)
     private val hot = Ui.text(a, "", 15f, Ui.DANGER, Ui.MEDIUM)
 
     init {
@@ -47,8 +46,6 @@ class SideRail(private val a: MainActivity) : LinearLayout(a) {
         item(Section.MORE, Icon.Kind.GRID, tr("Plus")) { more() }
         addView(View(a), LayoutParams(1, 0, 1f))
         addView(hot, Ui.lp(Ui.WRAP, Ui.WRAP, b = 6))
-        addView(lid, LayoutParams(Ui.u(30), Ui.u(30)))
-        lid.visibility = View.GONE
         hot.visibility = View.GONE
     }
 
@@ -101,7 +98,9 @@ class SideRail(private val a: MainActivity) : LinearLayout(a) {
 
     /** Pile d'écrans en cours : Retour visible dès qu'on n'est plus à l'accueil, rubrique surlignée. */
     fun setStack(stack: List<Screen>) {
-        back.visibility = if (stack.size > 1) View.VISIBLE else View.INVISIBLE
+        // Retour seulement en profondeur : un écran ouvert depuis le menu (ou l'accueil) se quitte
+        // par le menu.
+        back.visibility = if (stack.size > 2) View.VISIBLE else View.INVISIBLE
         val section = when (val root = stack.getOrNull(1)) {
             null -> Section.HOME
             is RecipesScreen, is RecipeScreen -> Section.RECIPES
@@ -118,7 +117,6 @@ class SideRail(private val a: MainActivity) : LinearLayout(a) {
     }
 
     fun update(s: Snapshot) {
-        lid.visibility = if (s.hasSample && s.lidOpen) View.VISIBLE else View.GONE
         val isHot = s.hasSample && s.actualTempC >= 50
         hot.visibility = if (isHot) View.VISIBLE else View.GONE
         if (isHot) hot.text = "${s.actualTempC}°"

@@ -22,8 +22,8 @@ class HomeScreen(a: MainActivity) : Screen(a) {
     private lateinit var clock: TextView
     private lateinit var date: TextView
     private lateinit var greeting: TextView
-    private lateinit var recipesSub: TextView
-    private lateinit var favSub: TextView
+    private lateinit var favGrid: LinearLayout
+    private var favShown = ""
     private lateinit var resumeCard: LinearLayout
     private lateinit var resumeText: TextView
     private lateinit var knobChip: LinearLayout
@@ -53,25 +53,6 @@ class HomeScreen(a: MainActivity) : Screen(a) {
         knobChip.setOnClickListener { a.push(KnobSetupScreen(a)) }
         left.addView(knobChip, Ui.lp(Ui.WRAP, Ui.WRAP, t = 12))
 
-        val search = Ui.horizontal(c)
-        search.setPadding(Ui.u(24), 0, Ui.u(24), 0)
-        search.background = Ui.pressable(Ui.round(Ui.SURFACE, 36f, Ui.STROKE, 1f), 36f)
-        search.addView(Icon(c, Icon.Kind.SEARCH, Ui.TEXT2), LinearLayout.LayoutParams(Ui.u(28), Ui.u(28)).apply { rightMargin = Ui.u(14) })
-        search.addView(Ui.text(c, tr("Rechercher une recette…"), 21f, Ui.TEXT3))
-        search.isClickable = true
-        search.setOnClickListener { a.push(RecipesScreen(a, focusSearch = true)) }
-        left.addView(search, Ui.lp(Ui.MATCH, Ui.u(72), t = 34))
-
-        // Raccourcis sous la recherche : dernières recettes cuisinées, et les plus cuisinées.
-        val shortcuts = Ui.horizontal(c)
-        shortcuts.addView(Ui.button(c, tr("Récentes"), Ui.Style.SECONDARY, Icon.Kind.CLOCK, height = 56, textSize = 18f) {
-            a.push(RecipesScreen(a, initialUsage = RecipesScreen.Usage.RECENT))
-        }, LinearLayout.LayoutParams(0, Ui.WRAP, 1f).apply { rightMargin = Ui.u(12) })
-        shortcuts.addView(Ui.button(c, tr("Fréquentes"), Ui.Style.SECONDARY, Icon.Kind.FLAME, height = 56, textSize = 18f) {
-            a.push(RecipesScreen(a, initialUsage = RecipesScreen.Usage.MOST))
-        }, LinearLayout.LayoutParams(0, Ui.WRAP, 1f))
-        left.addView(shortcuts, Ui.lp(Ui.MATCH, Ui.WRAP, t = 14))
-
         resumeCard = Ui.horizontal(c)
         resumeCard.setPadding(Ui.u(22), Ui.u(16), Ui.u(18), Ui.u(16))
         resumeCard.background = Ui.pressable(Ui.round(Ui.ACCENT_DIM, 24f), 24f)
@@ -94,25 +75,12 @@ class HomeScreen(a: MainActivity) : Screen(a) {
         left.addView(resumeCard, Ui.lp(Ui.MATCH, Ui.WRAP, t = 16))
         root.addView(left, LinearLayout.LayoutParams(0, Ui.MATCH, 0.42f).apply { rightMargin = Ui.u(28) })
 
-        val grid = Ui.vertical(c)
-        val row1 = Ui.horizontal(c)
-        val row2 = Ui.horizontal(c)
-        val (t1, s1) = tile(Icon.Kind.BOOK, tr("Recettes")) { a.push(RecipesScreen(a)) }
-        recipesSub = s1
-        row1.addView(t1, tileLp(true))
-        row1.addView(tile(Icon.Kind.POT, tr("Cuisson\nmanuelle"), hasSub = false) { a.push(ManualScreen(a)) }.first, tileLp(true))
-        row1.addView(tile(Icon.Kind.KNEAD, tr("Programmes"), tr("Pétrir, vapeur, rissoler, nettoyage")) { a.push(ProgramsScreen(a)) }.first, tileLp(false))
-        row2.addView(tile(Icon.Kind.SCALE, tr("Balance"), tr("Peser au gramme")) { a.push(ScaleScreen(a)) }.first, tileLp(true))
-        val (t5, s5) = tile(Icon.Kind.STAR, tr("Favoris")) { a.push(RecipesScreen(a, favorites = true)) }
-        favSub = s5
-        row2.addView(t5, tileLp(true))
-        // Rinçage du bol à la place des Réglages (passés en icône dans la barre du haut).
-        row2.addView(tile(Icon.Kind.DROP, tr("Rinçage"), tr("Laver et rincer le bol")) {
-            a.push(CookScreen(a, app.toque.core.recipes.Rinse.recipe(), 0))
-        }.first, tileLp(false))
-        grid.addView(row1, LinearLayout.LayoutParams(Ui.MATCH, 0, 1f).apply { bottomMargin = Ui.u(16) })
-        grid.addView(row2, LinearLayout.LayoutParams(Ui.MATCH, 0, 1f))
-        root.addView(grid, LinearLayout.LayoutParams(0, Ui.MATCH, 0.58f))
+        // Accueil simplifié : à droite les recettes favorites (le reste est dans le menu latéral).
+        val right = Ui.vertical(c)
+        right.addView(Ui.text(c, tr("Favoris").uppercase(I18n.locale), 15f, Ui.TEXT2, Ui.MEDIUM).apply { letterSpacing = 0.08f }, Ui.lp(t = 12, b = 10))
+        favGrid = Ui.vertical(c)
+        right.addView(favGrid, LinearLayout.LayoutParams(Ui.MATCH, 0, 1f))
+        root.addView(right, LinearLayout.LayoutParams(0, Ui.MATCH, 0.58f))
         return root
     }
 
@@ -158,21 +126,7 @@ class HomeScreen(a: MainActivity) : Screen(a) {
 
     private fun refresh() {
         val repo = a.app.recipes
-        val n = repo.count
-        val perso = repo.index.entries.count { UserRecipes.isUser(it.id) }
-        val community = repo.index.entries.count { CommunityRecipes.isCommunity(it.id) }
-        val lidl = n - perso - community
-        recipesSub.text = when {
-            !repo.loaded -> tr("Chargement…")
-            n == 0 -> tr("Aucune recette pour l'instant")
-            else -> listOfNotNull(
-                when (lidl) { 0 -> null; 1 -> tr("1 recette"); else -> tr("%d recettes", lidl) },
-                when (perso) { 0 -> null; 1 -> tr("1 recette perso"); else -> tr("%d recettes perso", perso) },
-                when (community) { 0 -> null; 1 -> tr("1 de la communauté"); else -> tr("%d de la communauté", community) },
-            ).joinToString("\n")
-        }
-        val favs = repo.index.entries.count { it.favorite }
-        favSub.text = if (favs == 0) tr("Aucun favori") else if (favs == 1) tr("1 favori") else tr("%d favoris", favs)
+        renderFavorites()
         knobChip.visibility = if (a.prefs.knobReady) View.GONE else View.VISIBLE
         val guided = a.prefs.guidedRecipe
         var title = if (guided.isEmpty()) null else repo.index.entries.firstOrNull { it.id == guided }?.title
@@ -183,6 +137,54 @@ class HomeScreen(a: MainActivity) : Screen(a) {
         }
         resumeCard.visibility = if (title != null) View.VISIBLE else View.GONE
         if (title != null) resumeText.text = tr("Reprendre « %s » — étape %d", title, a.prefs.guidedStep + 1)
+    }
+
+    /** Jusqu'à 4 favoris en cartes (photo et titre) ; au-delà, « Tous les favoris ». */
+    private fun renderFavorites() {
+        val repo = a.app.recipes
+        val favs = repo.index.entries.filter { it.favorite }
+        val key = favs.joinToString(",") { it.id } + repo.loaded
+        if (key == favShown) return
+        favShown = key
+        favGrid.removeAllViews()
+        if (favs.isEmpty()) {
+            favGrid.addView(Ui.text(c, if (!repo.loaded) tr("Chargement…")
+                else tr("Aucun favori pour l'instant.\nTouchez l'étoile d'une recette pour l'ajouter."), 18f, Ui.TEXT2)
+                .apply { setLineSpacing(0f, 1.2f) }, Ui.lp(t = 8))
+            return
+        }
+        val shown = favs.take(4)
+        for (r in 0 until 2) {
+            val row = Ui.horizontal(c)
+            for (k in 0 until 2) {
+                val e = shown.getOrNull(r * 2 + k)
+                val lp = LinearLayout.LayoutParams(0, Ui.MATCH, 1f).apply { if (k == 0) rightMargin = Ui.u(16) }
+                if (e == null) { row.addView(View(c), lp); continue }
+                val card = Ui.vertical(c)
+                card.background = Ui.pressable(Ui.round(Ui.SURFACE, 22f), 22f)
+                card.clipToOutline = true
+                card.outlineProvider = object : android.view.ViewOutlineProvider() {
+                    override fun getOutline(view: View, outline: android.graphics.Outline) =
+                        outline.setRoundRect(0, 0, view.width, view.height, Ui.uf(22f))
+                }
+                val box = android.widget.FrameLayout(c)
+                box.background = Ui.gradient(Ui.placeholderColors(e.title), 0f)
+                val img = android.widget.ImageView(c).apply { scaleType = android.widget.ImageView.ScaleType.CENTER_CROP }
+                box.addView(img, Ui.flp())
+                app.toque.ui.ImageLoader.load(img, repo.imageFile(e.image), Ui.u(300))
+                card.addView(box, LinearLayout.LayoutParams(Ui.MATCH, 0, 1f))
+                val t = Ui.ellipsize(Ui.text(c, e.title, 17f, Ui.TEXT, Ui.MEDIUM), 1)
+                t.setPadding(Ui.u(14), Ui.u(10), Ui.u(14), Ui.u(12))
+                card.addView(t, Ui.lp())
+                card.isClickable = true
+                card.setOnClickListener { repo.get(e.id)?.let { a.push(RecipeScreen(a, it)) } }
+                row.addView(card, lp)
+            }
+            favGrid.addView(row, LinearLayout.LayoutParams(Ui.MATCH, 0, 1f).apply { if (r == 0) bottomMargin = Ui.u(16) })
+        }
+        if (favs.size > 4) favGrid.addView(Ui.button(c, tr("Tous les favoris (%d)", favs.size), Ui.Style.GHOST, Icon.Kind.STAR, height = 48, textSize = 16f) {
+            a.push(RecipesScreen(a, favorites = true))
+        }, Ui.lp(Ui.WRAP, Ui.WRAP, t = 10))
     }
 
     override fun onShow() {
