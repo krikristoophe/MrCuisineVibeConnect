@@ -17,9 +17,9 @@ En ligne : https://claudimix.krikristoophe.workers.dev
   « Envoyer au robot », « Planifier », mode pas à pas pour cuisiner sans robot.
 - **Favoris** du foyer, triés par recettes les plus cuisinées ou oubliées.
 - **Mon compte et foyer** : connexion Google seulement, membres (invitation par lien), robots,
-  notifications push (cuisson terminée, action attendue), jeton pour l'accès MCP.
-- **MCP** (`/mcp`, jeton personnel) : chercher, lire, modifier, créer des recettes ; lire et prévoir
-  les repas.
+  notifications push (cuisson terminée, action attendue), assistants IA connectés.
+- **MCP** (`/mcp`, connexion OAuth 2.1 avec le compte Claudimix : dans Claude, ajouter un connecteur
+  personnalisé avec cette adresse) : chercher, lire, modifier, créer des recettes ; lire et prévoir les repas.
 - **Robot** : voir [API-ROBOT.md](API-ROBOT.md) (appairage par QR code, état en temps réel,
   commandes, repas du jour, synchro des recettes).
 
