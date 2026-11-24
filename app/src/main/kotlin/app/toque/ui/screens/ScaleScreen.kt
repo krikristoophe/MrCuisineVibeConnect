@@ -23,6 +23,9 @@ class ScaleScreen(a: MainActivity) : Screen(a) {
     override fun build(): View {
         val root = Ui.vertical(c, Gravity.CENTER_HORIZONTAL)
         Ui.screenPadding(root, titled = true)
+        // Poids et bouton centrés sur l'écran entier (sous lequel est la molette), pas sur la zone à
+        // droite du menu latéral de 80 : 80 de plus à droite qu'à gauche.
+        root.setPadding(Ui.u(18), root.paddingTop, Ui.u(18 + 80), root.paddingBottom)
         root.addView(Ui.spacer(c, weight = 1f), LinearLayout.LayoutParams(1, 0, 1f))
         val row = Ui.horizontal(c, Gravity.BOTTOM)
         value = Ui.text(c, "—", 200f, Ui.TEXT, Ui.THIN)
