@@ -24,7 +24,7 @@ class Prefs(context: Context) {
         val label: String get() = tr(fr)
 
         companion object {
-            fun of(k: String?) = values().firstOrNull { it.key == k } ?: DEMO
+            fun of(k: String?) = values().firstOrNull { it.key == k } ?: HARDWARE
         }
     }
 
@@ -41,19 +41,8 @@ class Prefs(context: Context) {
             p.edit().putString("language", v).commit()
         }
 
-    /** Couleur d'accent de l'interface (une de Ui.ACCENTS), 0 = celle d'origine. */
-    var accentColor: Int
-        get() = p.getInt("accentColor", 0)
-        set(v) {
-            p.edit().putInt("accentColor", v).commit()
-        }
-
-    /** Thème clair (fond clair) ; faux = bleu nuit d'origine. */
-    var lightTheme: Boolean
-        get() = p.getBoolean("lightTheme", false)
-        set(v) {
-            p.edit().putBoolean("lightTheme", v).commit()
-        }
+    /** Couleur d'accent : toujours l'orange d'origine (Ui.ACCENTS[0]), plus de choix dans les réglages. */
+    val accentColor: Int get() = 0
 
     var twinHost: String
         get() = p.getString("twinHost", "127.0.0.1") ?: "127.0.0.1"
@@ -96,39 +85,22 @@ class Prefs(context: Context) {
             p.edit().putString("vendorPackage", v).commit()
         }
 
-    var requireBowl: Boolean
-        get() = p.getBoolean("requireBowl", false)
-        set(v) {
-            p.edit().putBoolean("requireBowl", v).commit()
-        }
+    // Réglages de sécurité, de balance et de son figés (plus de section « Sécurité » dans les
+    // réglages) : les valeurs sont celles choisies sur le robot le 24/11/2026.
+
+    val requireBowl: Boolean get() = false
 
     /** Capteur du bol lu à l'envers (bases qui signalent « bol » quand il est retiré). */
-    var invertBowl: Boolean
-        get() = p.getBoolean("invertBowl", false)
-        set(v) {
-            p.edit().putBoolean("invertBowl", v).commit()
-        }
+    val invertBowl: Boolean get() = true
 
     /** Montée progressive de la vitesse quand le contenu est chaud (≥ 60 °C). */
-    var hotRamp: Boolean
-        get() = p.getBoolean("hotRamp", true)
-        set(v) {
-            p.edit().putBoolean("hotRamp", v).commit()
-        }
+    val hotRamp: Boolean get() = true
 
     /** Recettes : tare automatique en arrivant sur une étape de pesée. */
-    var autoTareSteps: Boolean
-        get() = p.getBoolean("autoTareSteps", true)
-        set(v) {
-            p.edit().putBoolean("autoTareSteps", v).commit()
-        }
+    val autoTareSteps: Boolean get() = true
 
     /** Balance remise à zéro quand le bol vide est replacé sur le socle. */
-    var bowlAutoZero: Boolean
-        get() = p.getBoolean("bowlAutoZero", true)
-        set(v) {
-            p.edit().putBoolean("bowlAutoZero", v).commit()
-        }
+    val bowlAutoZero: Boolean get() = true
 
     /** Masse du bol vide apprise (g), 0 = inconnue. */
     var emptyBowlG: Int
@@ -138,17 +110,9 @@ class Prefs(context: Context) {
         }
 
     /** Recettes : enchaîner sans appui les étapes machine qui se suivent sans geste à faire. */
-    var chainSteps: Boolean
-        get() = p.getBoolean("chainSteps", true)
-        set(v) {
-            p.edit().putBoolean("chainSteps", v).commit()
-        }
+    val chainSteps: Boolean get() = true
 
-    var sound: Boolean
-        get() = p.getBoolean("sound", true)
-        set(v) {
-            p.edit().putBoolean("sound", v).commit()
-        }
+    val sound: Boolean get() = true
 
     /** Mise en veille de l'écran après ce nombre de minutes sans geste (0 : jamais). */
     var standbyMinutes: Int
@@ -297,11 +261,7 @@ class Prefs(context: Context) {
         }
 
     /** Son joué quand la quantité à peser est atteinte (voir Sounds.WEIGH_SOUNDS). */
-    var weighSound: String
-        get() = p.getString("weighSound", "ding") ?: "ding"
-        set(v) {
-            p.edit().putString("weighSound", v).commit()
-        }
+    val weighSound: String get() = "gong"
     /** Prévenir quand une nouvelle version de Toque est publiée (au démarrage et au réveil). */
     var updateAlerts: Boolean
         get() = p.getBoolean("updateAlerts", true)

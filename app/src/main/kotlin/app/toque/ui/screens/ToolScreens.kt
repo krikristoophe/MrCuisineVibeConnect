@@ -10,6 +10,7 @@ import android.widget.TextView
 import app.toque.Prefs
 import app.toque.core.i18n.tr
 import app.toque.core.machine.Snapshot
+import app.toque.core.protocol.Mcc
 import app.toque.core.robot.RobotProfiles
 import app.toque.ui.Icon
 import app.toque.ui.MainActivity
@@ -64,7 +65,15 @@ class DiagnosticsScreen(a: MainActivity) : Screen(a) {
             // Base qui ne mesure pas le régime lame en marche (issue #10) : la vitesse affichée est celle demandée.
             if (s.motorOn && s.rpm == 0 && s.speedLevel > 0) append(tr("non mesuré · vitesse demandée %d", s.speedLevel)).append("\n")
             else append(s.rpm).append(" ").append(tr("tr/min (niveau %d)", s.speedLevel)).append("\n")
-            append(tr("Température").padEnd(17)).append(s.actualTempC).append(" ").append(tr("°C (consigne %d °C)", s.targetTempC)).append("\n")
+            if (RobotProfiles.active === RobotProfiles.MC_CONNECT) {
+                // Connect : les octets 12-13 de la trame de la base ne suivent pas la consigne (mesuré
+                // sur un SKMC 1200 C3 le 24/11/2026 : 56 → 51 pendant une chauffe à 50 °C). La consigne
+                // affichée est celle de la commande envoyée ; les octets 12-13 sont montrés à part.
+                append(tr("Température").padEnd(17)).append(s.actualTempC).append(" ").append(tr("°C (consigne %d °C)", Mcc.celsiusForLevel(s.wireTempLevel))).append("\n")
+                append(tr("Octets 12-13").padEnd(17)).append(s.targetTempC).append(" ").append(tr("(rôle inconnu)")).append("\n")
+            } else {
+                append(tr("Température").padEnd(17)).append(s.actualTempC).append(" ").append(tr("°C (consigne %d °C)", s.targetTempC)).append("\n")
+            }
             append(tr("Poids").padEnd(17)).append(s.weightG).append(" g · ").append(s.scaleState).append(if (s.scaleStable) " · " + tr("stable") else "").append('\n')
             append(tr("Couvercle ouvert").padEnd(17)).append(yn(s.lidOpen)).append('\n')
             append(tr("Bol détecté").padEnd(17)).append(yn(s.bowlDetected)).append('\n')

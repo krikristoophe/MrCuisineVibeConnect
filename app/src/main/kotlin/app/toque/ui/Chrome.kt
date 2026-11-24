@@ -67,7 +67,9 @@ class TopBar(private val a: MainActivity) : LinearLayout(a) {
     init {
         orientation = HORIZONTAL
         setGravity(Gravity.CENTER_VERTICAL)
-        setPadding(Ui.u(10), 0, Ui.u(18), 0)
+        // Marge confortable : le cadre du robot cache les bords de l'écran, et vus d'au-dessus les
+        // boutons Retour et Accueil collés au bord étaient coupés et difficiles à toucher.
+        setPadding(Ui.u(26), Ui.u(10), Ui.u(30), 0)
         // Transparente : le dégradé du fond passe aussi derrière la barre du haut.
         roundButton(back) { a.back() }
         addView(back, LayoutParams(Ui.u(52), Ui.u(52)))

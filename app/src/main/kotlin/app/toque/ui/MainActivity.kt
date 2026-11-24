@@ -20,6 +20,7 @@ import app.toque.Prefs
 import app.toque.ToqueApp
 import app.toque.core.i18n.I18n
 import app.toque.core.i18n.tr
+import app.toque.core.machine.RootShell
 import app.toque.core.machine.Accessory
 import app.toque.core.machine.EventType
 import app.toque.core.machine.Limits
@@ -83,7 +84,7 @@ class MainActivity : Activity() {
         root.background = Ui.background()
         val column = Ui.vertical(this)
         topBar = TopBar(this)
-        column.addView(topBar, Ui.lp(Ui.MATCH, Ui.u(60)))
+        column.addView(topBar, Ui.lp(Ui.MATCH, Ui.u(70)))   // 60 + marge du haut
         content = FrameLayout(this)
         column.addView(content, Ui.lp(Ui.MATCH, 0, 1f))
         machineBar = MachineBar(this)
@@ -117,7 +118,10 @@ class MainActivity : Activity() {
         // Robot pas encore confirmé : on le reconnaît sans rien lui envoyer, la personne confirme.
         // Ensuite (une seule fois) : proposer de relier un compte Toque.
         if (!prefs.robotConfirmed) root.post { askRobot() }
-        else if (!prefs.siteOffered) root.post { offerSite() }
+        else {
+            ensureHardware()
+            if (!prefs.siteOffered) root.post { offerSite() }
+        }
         // Recettes de la communauté (sans compte) : une première fois sans attendre la nuit, puis une
         // fois par jour au plus. Un peu après le démarrage, pour ne pas le ralentir.
         if (prefs.siteCommunity && System.currentTimeMillis() - prefs.siteLastMs > 24 * 3600_000L)
@@ -195,6 +199,36 @@ class MainActivity : Activity() {
         showOverlay(card, 720, dismissOnScrim = false)
     }
 
+    /**
+     * Toque pilote toujours la vraie machine (plus de mode Démo ni Jumeau dans les réglages). Si le
+     * mode enregistré est autre (première installation, retour depuis l'appli d'origine), on coupe
+     * l'appli d'origine du moteur et on passe en « Machine réelle ». Exige le root ; sans lui, on
+     * reste comme avant et on le dit.
+     */
+    fun ensureHardware() {
+        if (prefs.mode == Prefs.Mode.HARDWARE || !prefs.robotConfirmed) return
+        Thread {
+            val problems = ArrayList<String>()
+            if (!RootShell.available()) problems += tr("accès root refusé")
+            val sync = LidlSync(this, prefs, app.recipes, app.log)
+            if (problems.isEmpty() && sync.installed()) {
+                if (sync.components().hardwareService != null && !sync.setVendorHardware(false))
+                    problems += tr("impossible de couper l'appli d'origine du moteur")
+                sync.forceStop()
+            }
+            root.post {
+                if (problems.isNotEmpty()) {
+                    toast(tr("Machine réelle indisponible") + " : " + problems.joinToString(", "), Ui.WARN)
+                } else {
+                    prefs.mode = Prefs.Mode.HARDWARE
+                    prefs.bootLaunch = true
+                    machine.reconfigure { v -> if (v.ok) toast(tr("Mode : %s", Prefs.Mode.HARDWARE.label), Ui.OK) else refusal(v) }
+                    refreshTitle()
+                }
+            }
+        }.start()
+    }
+
     /** Change de robot : relance la liaison avec la base et refiltre les recettes. Refusé pendant un programme. */
     fun setRobot(p: RobotProfile) {
         if (snapshot.busy) {
@@ -205,6 +239,7 @@ class MainActivity : Activity() {
         prefs.robotId = p.id
         RobotProfiles.active = p
         machine.reconfigure { v -> if (!v.ok) refusal(v) }
+        ensureHardware()
         app.recipes.load()
         refreshTitle()
         // Les Réglages ouverts montrent des choses propres au robot (recettes Lidl, import) : on les refait.
@@ -235,23 +270,6 @@ class MainActivity : Activity() {
                 refusal(v)
             }
         }
-    }
-
-    /** Applique la couleur d'accent choisie : comme pour la langue, l'interface est reconstruite. */
-    fun applyAccent(color: Int) {
-        prefs.accentColor = color
-        Ui.setAccent(color)
-        reopenSettings = true
-        recreate()
-    }
-
-    /** Applique le thème clair ou sombre : l'interface est reconstruite, on revient aux réglages. */
-    fun applyTheme(light: Boolean) {
-        prefs.lightTheme = light
-        Ui.setTheme(light)
-        Ui.setAccent(prefs.accentColor)
-        reopenSettings = true
-        recreate()
     }
 
     /** Applique la langue choisie dans les réglages : l'interface est reconstruite, on revient aux réglages. */

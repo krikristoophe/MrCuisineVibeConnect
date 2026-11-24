@@ -70,6 +70,16 @@ class ScaleScreen(a: MainActivity) : Screen(a) {
         (state.getChildAt(0) as Icon).color = col
     }
 
+    /**
+     * À l'ouverture, la balance repart de zéro : on pèse ce qu'on pose, pas ce qui est déjà dans le
+     * bol. Tare « automatique » (comme aux étapes de pesée) : elle n'apprend pas le poids du bol vide.
+     * Jamais pendant un programme.
+     */
+    override fun onShow() {
+        val s = a.snapshot
+        if (s.ready && !s.busy) a.machine.tare(auto = true)
+    }
+
     override fun onKnobPress(): Boolean {
         a.machine.tare()
         return true

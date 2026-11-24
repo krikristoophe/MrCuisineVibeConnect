@@ -2,13 +2,10 @@ package app.toque.ui.screens
 
 import android.content.Intent
 import android.graphics.drawable.ColorDrawable
-import android.text.InputType
-import android.util.TypedValue
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
-import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.PopupWindow
 import android.widget.ScrollView
@@ -17,8 +14,6 @@ import app.toque.Prefs
 import app.toque.TimeSync
 import app.toque.core.i18n.I18n
 import app.toque.core.i18n.tr
-import app.toque.core.machine.RootShell
-import app.toque.core.machine.Snapshot
 import app.toque.core.time.ZoneLookup
 import app.toque.core.update.Release
 import app.toque.recipes.LidlSync
@@ -31,27 +26,19 @@ import app.toque.core.recipes.UserRecipes
 import app.toque.ui.Icon
 import app.toque.ui.MainActivity
 import app.toque.ui.Screen
-import app.toque.ui.Sounds
 import app.toque.ui.Ui
 import app.toque.ui.UpdateFlow
 import app.toque.update.Updater
 
 class SettingsScreen(a: MainActivity) : Screen(a) {
     override val title = tr("Réglages")
-    private lateinit var modeRow: LinearLayout
-    private lateinit var twinBox: LinearLayout
-    private lateinit var host: EditText
-    private lateinit var port: EditText
     private lateinit var syncText: TextView
     private lateinit var syncBtn: View
     private lateinit var stopSyncBtn: View
     /** Absent sur un robot dont la base de l'appli d'origine n'est pas encore lue (Smart). */
     private var importBtn: View? = null
-    private lateinit var bowlText: TextView
-    private lateinit var linkText: TextView
     private lateinit var timeText: TextView
     private var settingTime = false
-    private var mode = a.prefs.mode
 
     private enum class Upd { IDLE, CHECKING, UP_TO_DATE, AVAILABLE, ERROR }
     private val updater by lazy { Updater(a) }
@@ -79,76 +66,7 @@ class SettingsScreen(a: MainActivity) : Screen(a) {
         val robot = section(left, tr("Robot"), Icon.Kind.POT)
         robotText = Ui.text(c, "", 18f, Ui.TEXT).apply { setLineSpacing(0f, 1.15f) }
         robot.addView(robotText, Ui.lp(t = 4))
-        robot.addView(Ui.button(c, tr("Changer de robot"), Ui.Style.SECONDARY, height = 52) { a.askRobot() }, Ui.lp(Ui.WRAP, Ui.WRAP, t = 10))
         renderRobot()
-
-        // ---- Machine
-        val machine = section(left, tr("Machine"), Icon.Kind.POT)
-        modeRow = Ui.horizontal(c)
-        machine.addView(modeRow, Ui.lp(t = 4))
-        twinBox = Ui.horizontal(c)
-        host = field(a.prefs.twinHost, tr("Hôte"))
-        port = field(a.prefs.twinPort.toString(), "Port").apply { inputType = InputType.TYPE_CLASS_NUMBER }
-        twinBox.addView(host, LinearLayout.LayoutParams(0, Ui.u(58), 1f).apply { rightMargin = Ui.u(10) })
-        twinBox.addView(port, LinearLayout.LayoutParams(Ui.u(120), Ui.u(58)))
-        machine.addView(twinBox, Ui.lp(t = 12))
-        linkText = Ui.text(c, "", 16f, Ui.TEXT2).apply { setLineSpacing(0f, 1.15f) }
-        machine.addView(linkText, Ui.lp(t = 12))
-        machine.addView(Ui.button(c, tr("Appliquer"), Ui.Style.PRIMARY, Icon.Kind.CHECK, height = 58) { applyMode() }, Ui.lp(Ui.WRAP, Ui.WRAP, t = 14))
-        renderModes()
-
-        // ---- Sécurité
-        val safety = section(left, tr("Sécurité"), Icon.Kind.WARNING)
-        safety.addView(toggle(tr("Exiger la détection du bol"), a.prefs.requireBowl) { on ->
-            a.prefs.requireBowl = on
-            a.machine.reconfigure { a.refusal(it) }
-        })
-        bowlText = Ui.text(c, "", 15f, Ui.TEXT3).apply { setLineSpacing(0f, 1.1f) }
-        safety.addView(bowlText, Ui.lp(t = 6))
-        safety.addView(toggle(tr("Inverser le capteur du bol"), a.prefs.invertBowl) { on ->
-            a.prefs.invertBowl = on
-            a.machine.reconfigure { a.refusal(it) }
-        }, Ui.lp(t = 10))
-        safety.addView(Ui.text(c, tr("À activer si le capteur indique « bol détecté » quand le bol est retiré, et l'inverse quand il est en place."),
-            15f, Ui.TEXT3).apply { setLineSpacing(0f, 1.1f) }, Ui.lp(t = 6))
-        safety.addView(toggle(tr("Montée progressive de la vitesse si le contenu est chaud"), a.prefs.hotRamp) { on ->
-            a.prefs.hotRamp = on
-            a.machine.reconfigure { a.refusal(it) }
-        }, Ui.lp(t = 10))
-        safety.addView(Ui.text(c, tr("À partir de 60 °C, la lame atteint sa vitesse en 2 à 3 secondes pour éviter les projections. À froid, elle y va directement."),
-            15f, Ui.TEXT3).apply { setLineSpacing(0f, 1.1f) }, Ui.lp(t = 6))
-        safety.addView(toggle(tr("Enchaîner les étapes machine des recettes"), a.prefs.chainSteps) { a.prefs.chainSteps = it }, Ui.lp(t = 10))
-        safety.addView(Ui.text(c, tr("Les réglages qui se suivent sans geste à faire entre eux partent ensemble d'un seul appui sur Lancer : la lame passe directement à la vitesse et à la température suivantes."),
-            15f, Ui.TEXT3).apply { setLineSpacing(0f, 1.1f) }, Ui.lp(t = 6))
-        safety.addView(toggle(tr("Sons"), a.prefs.sound) { a.prefs.sound = it }, Ui.lp(t = 10))
-        safety.addView(Ui.text(c, tr("Son quand la quantité à peser est atteinte"), 18f, Ui.TEXT), Ui.lp(t = 10))
-        safety.addView(dropdown(Sounds.WEIGH_SOUNDS.map { it.first to tr(it.second) }, a.prefs.weighSound) { k ->
-            a.prefs.weighSound = k
-            Sounds.weighReached(k)
-        }, Ui.lp(Ui.MATCH, Ui.u(58), t = 8))
-
-        // ---- Balance
-        safety.addView(toggle(tr("Tare automatique aux étapes de pesée des recettes"), a.prefs.autoTareSteps) { a.prefs.autoTareSteps = it }, Ui.lp(t = 14))
-        safety.addView(Ui.text(c, tr("En passant à une étape « Pesez… », la balance repart de zéro : seul ce que vous ajoutez est compté. Jamais pendant un programme."),
-            15f, Ui.TEXT3).apply { setLineSpacing(0f, 1.1f) }, Ui.lp(t = 6))
-        safety.addView(toggle(tr("Remettre la balance à zéro quand le bol vide est replacé"), a.prefs.bowlAutoZero) { on ->
-            a.prefs.bowlAutoZero = on
-            a.machine.reconfigure { a.refusal(it) }
-        }, Ui.lp(t = 10))
-        val bowlScaleText = Ui.text(c, "", 15f, Ui.TEXT3).apply { setLineSpacing(0f, 1.1f) }
-        fun showBowl() {
-            val g = a.prefs.emptyBowlG
-            bowlScaleText.text = tr("Toque compare la masse posée au bol vide mémorisé : un bol replacé avec du contenu n'est jamais remis à zéro.") + "\n" +
-                (if (g > 0) tr("Bol vide mémorisé : %d g.", g)
-                else tr("Bol vide pas encore mémorisé : retirez le bol, replacez-le vide (avec son couvercle si vous cuisinez avec), puis appuyez sur Tare."))
-        }
-        showBowl()
-        safety.addView(bowlScaleText, Ui.lp(t = 6))
-        safety.addView(Ui.button(c, tr("Oublier le bol vide mémorisé"), Ui.Style.SECONDARY, height = 52) {
-            a.prefs.emptyBowlG = 0
-            a.machine.forgetEmptyBowl()
-            showBowl()
-        }, Ui.lp(Ui.WRAP, Ui.WRAP, t = 8))
 
         // ---- Langue (titre bilingue : trouvable quelle que soit la langue affichée)
         val language = section(right, "Langue · Language", Icon.Kind.INFO)
@@ -157,24 +75,6 @@ class SettingsScreen(a: MainActivity) : Screen(a) {
             a.prefs.language = code
             a.applyLanguage()
         }, Ui.lp(Ui.MATCH, Ui.u(58), t = 4))
-
-        // ---- Apparence : thème sombre/clair + couleur d'accent
-        val look = section(right, tr("Apparence"), Icon.Kind.STAR)
-        look.addView(Ui.text(c, tr("Thème"), 18f, Ui.TEXT))
-        val themes = listOf("dark" to tr("Mode sombre"), "light" to tr("Mode clair"))
-        look.addView(dropdown(themes, if (a.prefs.lightTheme) "light" else "dark") { code ->
-            val light = code == "light"
-            if (light != a.prefs.lightTheme) a.applyTheme(light)
-        }, Ui.lp(Ui.MATCH, Ui.u(58), t = 8))
-        look.addView(Ui.text(c, tr("Couleur des boutons, des icônes et des repères."), 15f, Ui.TEXT3)
-            .apply { setLineSpacing(0f, 1.1f) }, Ui.lp(t = 12))
-        for (rowIndex in 0 until 2) {
-            val row = Ui.horizontal(c, Gravity.CENTER)
-            for (i in rowIndex * 5 until rowIndex * 5 + 5) {
-                row.addView(swatch(Ui.ACCENTS[i]), LinearLayout.LayoutParams(0, Ui.u(60), 1f))
-            }
-            look.addView(row, Ui.lp(t = if (rowIndex == 0) 12 else 6))
-        }
 
         // ---- Écran
         val screen = section(right, tr("Écran"), Icon.Kind.CLOCK)
@@ -327,31 +227,6 @@ class SettingsScreen(a: MainActivity) : Screen(a) {
         return card
     }
 
-    /** Pastille de couleur : un disque, entouré et coché quand c'est la couleur en cours. */
-    private fun swatch(color: Int): View {
-        val box = android.widget.FrameLayout(c)
-        val selected = color == Ui.ACCENT
-        val dot = android.widget.FrameLayout(c).apply {
-            background = Ui.pressable(Ui.round(color, 26f, if (selected) Ui.TEXT else 0, if (selected) 3f else 0f), 26f)
-            if (selected) addView(Icon(c, Icon.Kind.CHECK, Ui.ON_ACCENT), Ui.flp(Ui.u(24), Ui.u(24), Gravity.CENTER))
-            isClickable = true
-            setOnClickListener { if (!selected) a.applyAccent(color) }
-        }
-        box.addView(dot, Ui.flp(Ui.u(52), Ui.u(52), Gravity.CENTER))
-        return box
-    }
-
-    private fun field(value: String, hint: String) = EditText(c).apply {
-        setText(value)
-        this.hint = hint
-        setTextSize(TypedValue.COMPLEX_UNIT_PX, Ui.uf(19f))
-        setTextColor(Ui.TEXT)
-        setHintTextColor(Ui.TEXT3)
-        setSingleLine()
-        background = Ui.round(Ui.SURFACE2, 16f, Ui.STROKE, 1f)
-        setPadding(Ui.u(14), 0, Ui.u(14), 0)
-    }
-
     private fun toggle(label: String, initial: Boolean, onChange: (Boolean) -> Unit): LinearLayout {
         val row = Ui.horizontal(c)
         row.addView(Ui.text(c, label, 18f, Ui.TEXT), LinearLayout.LayoutParams(0, Ui.WRAP, 1f))
@@ -465,75 +340,6 @@ class SettingsScreen(a: MainActivity) : Screen(a) {
         robotText.text = if (!a.prefs.robotConfirmed) tr("Pas encore choisi : la liaison avec la base reste fermée en « Machine réelle ».")
             else p.displayName + " (" + p.models.joinToString(", ") + ")" + if (p.tested) "" else
                 "\n" + tr("En test : le projet ne l'a pas essayé lui-même, vos retours sont attendus sur GitHub.")
-    }
-
-    private fun renderModes() {
-        modeRow.removeAllViews()
-        for (m in Prefs.Mode.values()) {
-            modeRow.addView(Ui.toggleChip(c, when (m) {
-                Prefs.Mode.DEMO -> tr("Démo")
-                Prefs.Mode.TWIN -> tr("Jumeau (PC)")
-                Prefs.Mode.HARDWARE -> tr("Machine réelle")
-            }, mode == m) { mode = m; renderModes() }, Ui.lp(Ui.WRAP, Ui.WRAP, r = 8))
-        }
-        twinBox.visibility = if (mode == Prefs.Mode.TWIN) View.VISIBLE else View.GONE
-        linkText.text = when (mode) {
-            Prefs.Mode.DEMO -> tr("Base moteur simulée : pour essayer l'appli sur n'importe quel appareil Android.")
-            Prefs.Mode.TWIN -> tr("Jumeau numérique du SDK lancé sur un PC (tools/twin.py). Avec « adb reverse tcp:8765 tcp:8765 », gardez 127.0.0.1.")
-            Prefs.Mode.HARDWARE -> tr("Pilote le vrai moteur par le port série. Exige le root. L'appli d'origine est coupée du moteur (réversible).")
-        }
-    }
-
-    private fun applyMode() {
-        if (a.snapshot.busy) {
-            a.toast(tr("Arrêtez d'abord le programme en cours"), Ui.WARN)
-            return
-        }
-        if (mode == Prefs.Mode.HARDWARE && !a.prefs.robotConfirmed) {
-            // Jamais de trame vers la base sans savoir quel robot c'est.
-            a.toast(tr("Choisissez d'abord votre robot"), Ui.WARN)
-            a.askRobot()
-            return
-        }
-        if (mode == Prefs.Mode.HARDWARE && a.prefs.mode != Prefs.Mode.HARDWARE) {
-            a.confirm(
-                tr("Piloter la vraie machine"),
-                tr("Toque va prendre le contrôle du moteur et de la chauffe à la place de l'appli d'origine.\n\n" +
-                    "Premier essai : bol vide, couvercle fermé, à portée de l'interrupteur principal. " +
-                    "Si quoi que ce soit semble anormal, coupez l'interrupteur."),
-                tr("Continuer"), danger = true,
-            ) { prepareHardware() }
-            return
-        }
-        save()
-    }
-
-    private fun save() {
-        a.prefs.mode = mode
-        a.prefs.bootLaunch = true
-        a.prefs.twinHost = host.text.toString().trim().ifEmpty { "127.0.0.1" }
-        a.prefs.twinPort = port.text.toString().trim().toIntOrNull() ?: 8765
-        a.machine.reconfigure { v -> if (v.ok) a.toast(tr("Mode : %s", mode.label), Ui.OK) else a.refusal(v) }
-        a.refreshTitle()
-    }
-
-    private fun prepareHardware() {
-        a.toast(tr("Vérifications…"))
-        Thread {
-            val problems = ArrayList<String>()
-            if (!RootShell.available()) problems += tr("accès root refusé")
-            val sync = LidlSync(a, a.prefs, a.app.recipes, a.app.log)
-            if (problems.isEmpty() && sync.installed()) {
-                if (sync.components().hardwareService != null && !sync.setVendorHardware(false))
-                    problems += tr("impossible de couper l'appli d'origine du moteur")
-                sync.forceStop()
-            }
-            view.post {
-                if (problems.isNotEmpty()) {
-                    a.confirm(tr("Machine réelle indisponible"), problems.joinToString("\n") { "• $it" }, "OK", tr("Fermer")) {}
-                } else save()
-            }
-        }.start()
     }
 
     private fun restoreVendor() {
@@ -749,8 +555,6 @@ class SettingsScreen(a: MainActivity) : Screen(a) {
     private var unsubSite: (() -> Unit)? = null
 
     override fun onShow() {
-        mode = a.prefs.mode
-        renderModes()
         renderRobot()
         refreshSync()
         renderAccount()
@@ -770,8 +574,4 @@ class SettingsScreen(a: MainActivity) : Screen(a) {
         unsubSite = null
     }
 
-    override fun onSnapshot(s: Snapshot) {
-        bowlText.text = if (s.hasSample) tr("Capteur du bol en ce moment : %s. Vérifiez qu'il change quand vous retirez le bol avant d'activer cette option.",
-            if (s.bowlDetected) tr("bol détecté") else tr("bol NON détecté")) else tr("Base non connectée")
-    }
 }

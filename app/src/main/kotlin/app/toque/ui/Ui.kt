@@ -20,7 +20,7 @@ import android.widget.TextView
 
 /**
  * Thème et utilitaires de mise en page, à l'échelle d'un écran de référence 1024×600.
- * Couleurs de base (fond, texte…) selon [light] ; accent choisi via [setAccent].
+ * Couleurs de base (fond, texte…) du thème clair ; accent orange (voir [setAccent]).
  */
 object Ui {
     /** Couleurs d'accent (Réglages › Couleur). La première est celle d'origine. */
@@ -37,32 +37,21 @@ object Ui {
         0xFFFF6F61.toInt(), // corail
     )
 
-    var light = false
-        private set
-
-    var BG = 0xFF0A1322.toInt()
-        private set
-    var SURFACE = 0xFF131D2E.toInt()
-        private set
-    var SURFACE2 = 0xFF1A2639.toInt()
-        private set
-    var SURFACE3 = 0xFF223048.toInt()
-        private set
-    var STROKE = 0xFF2A3A55.toInt()
-        private set
-    var TEXT = 0xFFF3F5F9.toInt()
-        private set
-    var TEXT2 = 0xFF9CA8BC.toInt()
-        private set
-    var TEXT3 = 0xFF66738A.toInt()
-        private set
-    var SCRIM = 0xCC000000.toInt()
-        private set
-    private var bgGradient = intArrayOf(0xFF16294A.toInt(), 0xFF0D1A31.toInt(), 0xFF070E1B.toInt())
-    private var rippleColor = 0x33FFFFFF
-    private var placeholders = intArrayOf(
-        0xFF3A2416.toInt(), 0xFF16302A.toInt(), 0xFF2B2140.toInt(), 0xFF3B1E26.toInt(),
-        0xFF1C2B3E.toInt(), 0xFF35301A.toInt(), 0xFF1E3320.toInt(), 0xFF3A2A1C.toInt(),
+    // Thème clair uniquement (le thème sombre a été retiré).
+    val BG = 0xFFF3F5F8.toInt()
+    val SURFACE = 0xFFFFFFFF.toInt()
+    val SURFACE2 = 0xFFEBEEF3.toInt()
+    val SURFACE3 = 0xFFDEE3EB.toInt()
+    val STROKE = 0xFFC5CDD9.toInt()
+    val TEXT = 0xFF1A2332.toInt()
+    val TEXT2 = 0xFF5A6578.toInt()
+    val TEXT3 = 0xFF8B95A8.toInt()
+    val SCRIM = 0x99000000.toInt()
+    private val bgGradient = intArrayOf(0xFFF7F8FB.toInt(), 0xFFEEF1F6.toInt(), 0xFFE4E9F1.toInt())
+    private val rippleColor = 0x22000000
+    private val placeholders = intArrayOf(
+        0xFFE8D5C4.toInt(), 0xFFC5DDD4.toInt(), 0xFFD4CDE4.toInt(), 0xFFE4CCD2.toInt(),
+        0xFFC8D5E4.toInt(), 0xFFE0DBC4.toInt(), 0xFFC9DEC9.toInt(), 0xFFE4D4C4.toInt(),
     )
 
     const val COOL = 0xFF5CC8FF.toInt()
@@ -84,44 +73,6 @@ object Ui {
         ACCENT_DIM = (c and 0x00FFFFFF) or 0x33000000
         fun dark(ch: Int) = (((c shr ch) and 0xFF) * 0.12f).toInt() shl ch
         ON_ACCENT = (0xFF shl 24) or dark(16) or dark(8) or dark(0)
-    }
-
-    /** Applique le thème clair ou sombre (fond, surfaces, texte). L'accent est inchangé. */
-    fun setTheme(lightTheme: Boolean) {
-        light = lightTheme
-        if (lightTheme) {
-            BG = 0xFFF3F5F8.toInt()
-            SURFACE = 0xFFFFFFFF.toInt()
-            SURFACE2 = 0xFFEBEEF3.toInt()
-            SURFACE3 = 0xFFDEE3EB.toInt()
-            STROKE = 0xFFC5CDD9.toInt()
-            TEXT = 0xFF1A2332.toInt()
-            TEXT2 = 0xFF5A6578.toInt()
-            TEXT3 = 0xFF8B95A8.toInt()
-            SCRIM = 0x99000000.toInt()
-            bgGradient = intArrayOf(0xFFF7F8FB.toInt(), 0xFFEEF1F6.toInt(), 0xFFE4E9F1.toInt())
-            rippleColor = 0x22000000
-            placeholders = intArrayOf(
-                0xFFE8D5C4.toInt(), 0xFFC5DDD4.toInt(), 0xFFD4CDE4.toInt(), 0xFFE4CCD2.toInt(),
-                0xFFC8D5E4.toInt(), 0xFFE0DBC4.toInt(), 0xFFC9DEC9.toInt(), 0xFFE4D4C4.toInt(),
-            )
-        } else {
-            BG = 0xFF0A1322.toInt()
-            SURFACE = 0xFF131D2E.toInt()
-            SURFACE2 = 0xFF1A2639.toInt()
-            SURFACE3 = 0xFF223048.toInt()
-            STROKE = 0xFF2A3A55.toInt()
-            TEXT = 0xFFF3F5F9.toInt()
-            TEXT2 = 0xFF9CA8BC.toInt()
-            TEXT3 = 0xFF66738A.toInt()
-            SCRIM = 0xCC000000.toInt()
-            bgGradient = intArrayOf(0xFF16294A.toInt(), 0xFF0D1A31.toInt(), 0xFF070E1B.toInt())
-            rippleColor = 0x33FFFFFF
-            placeholders = intArrayOf(
-                0xFF3A2416.toInt(), 0xFF16302A.toInt(), 0xFF2B2140.toInt(), 0xFF3B1E26.toInt(),
-                0xFF1C2B3E.toInt(), 0xFF35301A.toInt(), 0xFF1E3320.toInt(), 0xFF3A2A1C.toInt(),
-            )
-        }
     }
 
     val LIGHT: Typeface = Typeface.create("sans-serif-light", Typeface.NORMAL)
