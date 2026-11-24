@@ -53,11 +53,18 @@ class RecipeScreen(a: MainActivity, val recipe: Recipe) : Screen(a) {
     private val ingredientsBox by lazy { Ui.vertical(c) }
     private val stepsList by lazy { Ui.vertical(c) }
 
+    /** Onglets de la carte de droite. */
+    private var showSteps = false
+    private val tabsRow by lazy { Ui.horizontal(c) }
+    private val stepsBox by lazy { Ui.vertical(c) }
+    private val stepperBox by lazy { Ui.horizontal(c) }
+    private lateinit var tabScroll: android.widget.ScrollView
+
     override fun build(): View {
         val root = Ui.horizontal(c, Gravity.TOP)
         root.setPadding(Ui.u(24), Ui.u(6), Ui.u(24), Ui.u(18))
 
-        // ---- colonne gauche
+        // ---- colonne gauche : photo, durée et note, portions, catégorie et tags, Cuisiner / Favori
         val left = Ui.vertical(c)
         val header = FrameLayout(c)
         header.background = Ui.gradient(Ui.placeholderColors(recipe.title), 24f)
@@ -70,37 +77,37 @@ class RecipeScreen(a: MainActivity, val recipe: Recipe) : Screen(a) {
                 outline.setRoundRect(0, 0, view.width, view.height, Ui.uf(24f))
         }
         ImageLoader.load(img, a.app.recipes.imageFile(recipe.image), Ui.u(420))
-        left.addView(header, LinearLayout.LayoutParams(Ui.MATCH, Ui.u(170)))
+        left.addView(header, LinearLayout.LayoutParams(Ui.MATCH, Ui.u(230)))
 
         val meta = Ui.horizontal(c)
         if (recipe.totalMinutes > 0) meta.addView(Ui.chip(c, "${recipe.totalMinutes} min", Icon.Kind.CLOCK), Ui.lp(Ui.WRAP, Ui.WRAP, r = 8))
-        // Le nombre de personnes se règle au-dessus des ingrédients.
-        if (recipe.servings > 0) servingsChip = Ui.chip(c, "", Icon.Kind.PEOPLE).also { meta.addView(it, Ui.lp(Ui.WRAP, Ui.WRAP, r = 8)) }
-        meta.addView(Ui.chip(c, when (recipe.difficulty) { 1 -> tr("Facile"); 2 -> tr("Moyen"); else -> tr("Difficile") }, Icon.Kind.STAR))
+        if (recipe.ratingCount > 0) meta.addView(Ui.chip(c, rating(recipe.rating), Icon.Kind.STAR), Ui.lp(Ui.WRAP, Ui.WRAP, r = 8))
+        meta.addView(View(c), LinearLayout.LayoutParams(0, 1, 1f))
+        if (recipe.servings > 0) meta.addView(stepperBox, Ui.lp(Ui.WRAP, Ui.WRAP))
         left.addView(meta, Ui.lp(t = 12))
 
-        // Auteur et note du site.
-        val byline = ArrayList<String>()
-        val community = recipe.source == RecipeSource.COMMUNITY
-        if (recipe.source == RecipeSource.USER) byline += tr("Ma recette")
-        else if (community) byline += if (recipe.author.isNotBlank()) tr("Communauté toqueapp.org · par %s", recipe.author) else tr("Communauté toqueapp.org")
-        else if (recipe.author.isNotBlank()) byline += tr("Par %s", authorName(recipe.author))
-        // Recette de la communauté : sa langue seulement si ce n'est pas celle de l'interface.
-        if (recipe.language.isNotBlank() && !(community && recipe.language.substringBefore('-') == I18n.code.substringBefore('-')))
-            byline += tr("Recette en %s", java.util.Locale.forLanguageTag(recipe.language).getDisplayLanguage(I18n.locale))
-        if (recipe.ratingCount > 0) byline += "★ " + tr("%s/5 · %d notes", rating(recipe.rating), recipe.ratingCount)
-        // Une ligne chacun : sur une seule, la note était coupée (« 124… ») dès que l'auteur est long.
-        byline.forEachIndexed { i, line ->
-            left.addView(Ui.ellipsize(Ui.text(c, line, 16f, Ui.TEXT2)), Ui.lp(t = if (i == 0) 10 else 2))
+        // Catégorie et tags de la recette (pas de description dans les recettes Lidl).
+        val tags = (listOf(recipe.category) + recipe.tags).map { it.trim() }.filter { it.isNotEmpty() }.distinct()
+        if (tags.isNotEmpty()) {
+            left.addView(Ui.text(c, tr("Catégorie et tags").uppercase(I18n.locale), 14f, Ui.TEXT2, Ui.MEDIUM).apply { letterSpacing = 0.08f },
+                Ui.lp(t = 16))
+            val row = Ui.horizontal(c)
+            for ((k, t) in tags.withIndex()) {
+                val first = k == 0 && recipe.category.isNotBlank()
+                row.addView(Ui.chip(c, t, color = if (first) Ui.TEXT else Ui.TEXT2, bg = if (first) Ui.ACCENT_DIM else Ui.SURFACE),
+                    Ui.lp(Ui.WRAP, Ui.WRAP, r = 8))
+            }
+            val scroller = android.widget.HorizontalScrollView(c).apply { isHorizontalScrollBarEnabled = false; overScrollMode = View.OVER_SCROLL_NEVER }
+            scroller.addView(row)
+            left.addView(scroller, Ui.lp(t = 8))
         }
-        // Recette perso, compte toqueapp.org relié : où elle en est sur le site ; toucher pour choisir.
-        if (recipe.source == RecipeSource.USER) SitePublish.status(a, recipe)?.let { line ->
-            val t = Ui.ellipsize(Ui.text(c, line, 16f, Ui.ACCENT))
-            t.setPadding(0, Ui.u(6), 0, Ui.u(6))
-            t.isClickable = true
-            t.setOnClickListener { SitePublish.ask(a, recipe) { t.text = SitePublish.status(a, recipe) ?: "" } }
-            left.addView(t, Ui.lp(t = 2))
+        val times = when {
+            recipe.prepMinutes > 0 && recipe.totalMinutes > 0 -> tr("Préparation %d min · %d min au total", recipe.prepMinutes, recipe.totalMinutes)
+            recipe.totalMinutes > 0 -> tr("%d min au total", recipe.totalMinutes)
+            else -> ""
         }
+        if (times.isNotEmpty()) left.addView(Ui.text(c, times, 16f, Ui.TEXT2), Ui.lp(t = 10))
+        left.addView(View(c), LinearLayout.LayoutParams(1, 0, 1f))
 
         val actions = Ui.horizontal(c)
         actions.addView(Ui.button(c, tr("Cuisiner"), Ui.Style.PRIMARY, Icon.Kind.PLAY, height = 66, textSize = 22f) {
@@ -110,75 +117,55 @@ class RecipeScreen(a: MainActivity, val recipe: Recipe) : Screen(a) {
         favIcon = fav.getChildAt(0) as Icon
         favLabel = Ui.text(c, "", 18f, Ui.TEXT, Ui.MEDIUM)
         fav.addView(favLabel, LinearLayout.LayoutParams(Ui.WRAP, Ui.WRAP).apply { leftMargin = Ui.u(8) })
-        // Recette perso : la modifier. Recette Lidl : en faire sa version, modifiable.
-        val mine = recipe.source == RecipeSource.USER
-        val edit = Ui.button(c, "", Ui.Style.SECONDARY, Icon.Kind.EDIT, height = 66) { if (mine) editMine() else makeMyVersion() }
-        edit.contentDescription = if (mine) tr("Modifier la recette") else tr("Ma version")
-        actions.addView(edit, Ui.lp(Ui.WRAP, Ui.WRAP, r = 12))
         actions.addView(fav)
-        left.addView(actions, Ui.lp(t = 14))
+        left.addView(actions, Ui.lp(t = 12))
+        root.addView(left, LinearLayout.LayoutParams(Ui.u(400), Ui.MATCH).apply { rightMargin = Ui.u(24) })
 
+        // ---- carte de droite : onglets Ingrédients / Étapes, chacun sur toute la hauteur
         renderIngredients()
-        left.addView(Ui.scroll(c, ingredientsBox), LinearLayout.LayoutParams(Ui.MATCH, 0, 1f).apply { topMargin = Ui.u(10) })
-        root.addView(left, LinearLayout.LayoutParams(0, Ui.MATCH, 0.42f).apply { rightMargin = Ui.u(24) })
-
-        // ---- colonne droite
-        val steps = Ui.vertical(c)
-        steps.addView(section(tr("Étapes")))
-        steps.addView(stepsList)
+        stepsBox.addView(stepsList)
         renderSteps()
-        McOnline.apiIdOf(recipe.id)?.let { apiId ->
-            steps.addView(reviewsBox, Ui.lp(t = 22))
-            reviewsBox.addView(section(if (recipe.ratingCount > 0)
-                tr("Avis · %s/5 (%d notes)", rating(recipe.rating), recipe.ratingCount) else tr("Avis")))
-            reviewsBox.addView(reviewsState, Ui.lp(t = 10))
-            loadReviews(apiId, 1)
-        }
-        val stepsBox = Ui.vertical(c)
-        stepsBox.background = Ui.round(Ui.SURFACE, 24f)
-        stepsBox.setPadding(Ui.u(22), Ui.u(10), Ui.u(22), Ui.u(18))
-        stepsBox.addView(Ui.scroll(c, steps), Ui.lp(Ui.MATCH, Ui.MATCH))
-        root.addView(stepsBox, LinearLayout.LayoutParams(0, Ui.MATCH, 0.58f))
+        val card = Ui.vertical(c)
+        card.background = Ui.round(Ui.SURFACE, 24f)
+        card.setPadding(Ui.u(22), Ui.u(14), Ui.u(22), Ui.u(4))
+        card.addView(tabsRow, Ui.lp(b = 6))
+        val pane = Ui.vertical(c)
+        pane.addView(ingredientsBox, Ui.lp())
+        pane.addView(stepsBox, Ui.lp())
+        tabScroll = Ui.scroll(c, pane)
+        card.addView(tabScroll, LinearLayout.LayoutParams(Ui.MATCH, 0, 1f))
+        root.addView(card, LinearLayout.LayoutParams(0, Ui.MATCH, 1f))
+        showTab(false)
         refreshFavorite()
         return root
     }
 
-    // ------------------------------------------------------------------ note et quantités adaptées
+    private fun showTab(steps: Boolean) {
+        showSteps = steps
+        tabsRow.removeAllViews()
+        tabsRow.addView(Ui.toggleChip(c, tr("Ingrédients"), !steps) { showTab(false) }, Ui.lp(Ui.WRAP, Ui.WRAP, r = 8))
+        tabsRow.addView(Ui.toggleChip(c, tr("Étapes"), steps) { showTab(true) }, Ui.lp(Ui.WRAP, Ui.WRAP))
+        ingredientsBox.visibility = if (steps) View.GONE else View.VISIBLE
+        stepsBox.visibility = if (steps) View.VISIBLE else View.GONE
+        tabScroll.scrollTo(0, 0)
+    }
 
-    private var servingsChip: LinearLayout? = null
+    /** Le défilement au bouton du robot passe à la carte de droite. */
+    override fun onKnob(delta: Int): Boolean {
+        tabScroll.smoothScrollBy(0, delta * Ui.u(160))
+        return true
+    }
+
+    // ------------------------------------------------------------------ note et quantités adaptées
 
     private fun renderIngredients() {
         val ing = ingredientsBox
         ing.removeAllViews()
-        servingsChip?.let { chip ->
-            val changed = shown.servings != recipe.servings
-            Ui.chipText(chip).text = people(shown.servings)
-            Ui.chipText(chip).setTextColor(if (changed) Ui.ACCENT else Ui.TEXT2)
-            (chip.getChildAt(0) as Icon).color = if (changed) Ui.ACCENT else Ui.TEXT2
-            chip.background = Ui.round(if (changed) Ui.ACCENT_DIM else Ui.SURFACE2, 40f)
-        }
-        ing.addView(section(tr("Ma note")))
-        if (adjustments.note.isBlank()) {
-            ing.addView(Ui.button(c, tr("Ajouter une note"), Ui.Style.GHOST, Icon.Kind.PLUS, height = 46, textSize = 16f) { editNote() },
-                Ui.lp(Ui.WRAP, Ui.WRAP, t = 8))
-        } else {
-            val note = Ui.text(c, adjustments.note, 17f, Ui.TEXT).apply { setLineSpacing(0f, 1.15f) }
-            note.background = Ui.pressable(Ui.round(Ui.ACCENT_DIM, 16f), 16f)
-            note.setPadding(Ui.u(14), Ui.u(10), Ui.u(14), Ui.u(10))
-            note.setOnClickListener { editNote() }
-            ing.addView(note, Ui.lp(t = 8))
-        }
-        if (recipe.servings > 0) {
-            val head = Ui.horizontal(c)
-            head.addView(section(tr("Ingrédients")), LinearLayout.LayoutParams(0, Ui.WRAP, 1f))
-            head.addView(servingsStepper(), Ui.lp(Ui.WRAP, Ui.WRAP, t = 6))
-            ing.addView(head, Ui.lp(t = 8))
-            if (shown.servings != recipe.servings) ing.addView(servingsNotice(), Ui.lp(t = 8, b = 4))
-        } else {
-            ing.addView(section(tr("Ingrédients")), Ui.lp(t = 8))
-        }
+        stepperBox.removeAllViews()
+        if (recipe.servings > 0) stepperBox.addView(servingsStepper())
+        if (recipe.servings > 0 && shown.servings != recipe.servings) ing.addView(servingsNotice(), Ui.lp(t = 4, b = 8))
         if (shown.allIngredients.any { it.qty.isNotBlank() } || shown.steps.any { it.weigh != null }) {
-            ing.addView(Ui.text(c, tr("Touchez une quantité pour l'adapter : les étapes suivent."), 14f, Ui.TEXT3), Ui.lp(t = 4))
+            ing.addView(Ui.text(c, tr("Touchez une quantité pour l'adapter : les étapes suivent."), 14f, Ui.TEXT3), Ui.lp(b = 4))
         }
         var index = 0
         for (g in shown.ingredients) {
@@ -186,7 +173,8 @@ class RecipeScreen(a: MainActivity, val recipe: Recipe) : Screen(a) {
             for (i in g.items) {
                 val k = index++
                 val original = if (i.originalQty.isNotBlank()) quantity(i.originalQty, i.unit) else null
-                ing.addView(ingredientRow(i.display, original, if (i.qty.isNotBlank()) ({ editQuantity(i, k) }) else null), Ui.lp(t = 4))
+                val label = if (i.note.isNotBlank()) "${i.name.trim()}, ${i.note.trim()}" else i.name.trim()
+                ing.addView(ingredientRow(label, quantity(i.qty, i.unit), original, if (i.qty.isNotBlank()) ({ editQuantity(i, k) }) else null))
             }
         }
         if (shown.ingredients.isEmpty()) ing.addView(Ui.text(c, tr("Pas de liste d'ingrédients."), 17f, Ui.TEXT3), Ui.lp(t = 8))
@@ -196,26 +184,33 @@ class RecipeScreen(a: MainActivity, val recipe: Recipe) : Screen(a) {
             ing.addView(Ui.text(c, tr("Aussi dans les étapes"), 17f, Ui.ACCENT, Ui.MEDIUM), Ui.lp(t = 14, b = 2))
             for ((si, name, w) in unlisted) {
                 val original = if (w.originalGrams > 0) "${w.originalGrams} g" else null
-                ing.addView(ingredientRow("${w.grams} g $name", original) { editWeigh(si, name, w) }, Ui.lp(t = 4))
+                ing.addView(ingredientRow(name, "${w.grams} g", original) { editWeigh(si, name, w) })
             }
         }
     }
 
-    /** Ligne d'ingrédient ; [original] : valeur de la recette quand elle a été adaptée. */
-    private fun ingredientRow(label: String, original: String?, onClick: (() -> Unit)?): View {
+    /**
+     * Ligne d'ingrédient : le nom à gauche, la quantité à droite, un filet dessous.
+     * [original] : valeur de la recette quand elle a été adaptée.
+     */
+    private fun ingredientRow(label: String, qty: String, original: String?, onClick: (() -> Unit)?): View {
+        val box = Ui.vertical(c)
         val row = Ui.horizontal(c, Gravity.TOP)
         val changed = original != null
-        row.addView(Ui.text(c, "•", 18f, if (changed) Ui.ACCENT else Ui.TEXT3), Ui.lp(Ui.WRAP, Ui.WRAP, r = 10))
         val col = Ui.vertical(c)
-        col.addView(Ui.text(c, label, 18f, if (changed) Ui.ACCENT else Ui.TEXT).apply { setLineSpacing(0f, 1.1f) })
+        col.addView(Ui.text(c, label, 20f, Ui.TEXT).apply { setLineSpacing(0f, 1.1f) })
         if (original != null) col.addView(Ui.text(c, tr("Recette : %s", original), 14f, Ui.TEXT3), Ui.lp(t = 2))
         row.addView(col, LinearLayout.LayoutParams(0, Ui.WRAP, 1f))
+        if (qty.isNotBlank()) row.addView(Ui.text(c, qty, 20f, if (changed) Ui.ACCENT else Ui.TEXT2, if (changed) Ui.MEDIUM else Ui.REGULAR),
+            Ui.lp(Ui.WRAP, Ui.WRAP, l = 14))
+        row.setPadding(0, Ui.u(12), 0, Ui.u(12))
+        box.addView(row)
+        box.addView(View(c).apply { setBackgroundColor(Ui.SURFACE2) }, Ui.lp(Ui.MATCH, Ui.u(1)))
         if (onClick != null) {
-            row.background = Ui.pressable(Ui.round(0, 12f), 12f)
-            row.setOnClickListener { onClick() }
+            box.background = Ui.pressable(Ui.round(0, 12f), 12f)
+            box.setOnClickListener { onClick() }
         }
-        row.setPadding(0, Ui.u(4), 0, Ui.u(4))
-        return row
+        return box
     }
 
     private fun renderSteps() {
@@ -290,15 +285,6 @@ class RecipeScreen(a: MainActivity, val recipe: Recipe) : Screen(a) {
         renderIngredients()
         renderSteps()
     }
-
-    private fun editNote() = editor(
-        title = tr("Ma note sur cette recette"),
-        detail = tr("Elle reste sur ce robot, même après une synchronisation des recettes."),
-        value = adjustments.note,
-        hint = tr("Ex. : moins d'eau la prochaine fois"),
-        lines = 2,
-        reset = if (adjustments.note.isBlank()) null else tr("Effacer"),
-    ) { text -> save(adjustments.withNote(text.orEmpty())); true }
 
     /** [i] : l'ingrédient affiché (n° [k] de la liste) ; la correction s'enregistre pour le nombre de personnes de la recette. */
     private fun editQuantity(i: Ingredient, k: Int) {
