@@ -123,7 +123,7 @@ class HomeScreen(a: MainActivity) : Screen(a) {
         // même hauteur dans toutes les tuiles, quel que soit le texte (une ou deux lignes, avec ou
         // sans sous-titre) : espace fixe au-dessus, texte accroché sous la pastille.
         val t = Ui.vertical(c, Gravity.CENTER_HORIZONTAL)
-        t.setPadding(Ui.u(14), Ui.u(14), Ui.u(14), Ui.u(14))
+        t.setPadding(Ui.u(8), Ui.u(14), Ui.u(8), Ui.u(14))
         t.background = Ui.pressable(Ui.round(Ui.SURFACE, 26f, Ui.STROKE, 1f), 26f)
         t.addView(View(c), LinearLayout.LayoutParams(1, 0, 2f))
         val badge = android.widget.FrameLayout(c)
@@ -131,7 +131,7 @@ class HomeScreen(a: MainActivity) : Screen(a) {
         badge.addView(Icon(c, icon, Ui.ACCENT), Ui.flp(Ui.u(46), Ui.u(46), Gravity.CENTER))
         t.addView(badge, LinearLayout.LayoutParams(Ui.u(84), Ui.u(84)))
         val text = Ui.vertical(c, Gravity.CENTER_HORIZONTAL or Gravity.TOP)
-        text.addView(Ui.text(c, title, 22f, Ui.TEXT, Ui.MEDIUM).apply { gravity = Gravity.CENTER }, Ui.lp(Ui.WRAP, Ui.WRAP, t = 12))
+        text.addView(Ui.text(c, title, 20f, Ui.TEXT, Ui.MEDIUM).apply { gravity = Gravity.CENTER }, Ui.lp(Ui.WRAP, Ui.WRAP, t = 12))
         val s = Ui.ellipsize(Ui.text(c, sub, 15f, Ui.TEXT2).apply { gravity = Gravity.CENTER }, 2)
         if (hasSub) text.addView(s, Ui.lp(Ui.WRAP, Ui.WRAP, t = 4))
         t.addView(text, LinearLayout.LayoutParams(Ui.MATCH, 0, 3f))

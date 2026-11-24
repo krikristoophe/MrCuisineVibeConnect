@@ -113,7 +113,7 @@ class Standby(private val a: MainActivity, private val root: FrameLayout) {
         // claire sur fond noir, à la même place et à la même taille que sur l'accueil (barre du
         // haut de 70, marges de l'accueil, ligne « Bonjour » gardée vide pour l'alignement).
         val b = Ui.vertical(a, Gravity.START)
-        b.setPadding(Ui.u(28), Ui.u(70 + 10), 0, 0)
+        b.setPadding(Ui.u(80 + 28), Ui.u(10), 0, 0)   // menu latéral de 80, marges de l'accueil
         b.addView(Ui.text(a, " ", 24f, 0, Ui.LIGHT), Ui.lp(Ui.WRAP, Ui.WRAP, t = 8))
         val t = Ui.text(a, "", 132f, 0xFFE6E9EE.toInt(), Ui.THIN)
         b.addView(t, Ui.lp(Ui.WRAP, Ui.WRAP, t = 2))

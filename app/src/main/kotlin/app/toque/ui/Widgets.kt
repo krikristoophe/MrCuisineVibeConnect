@@ -13,7 +13,7 @@ import app.toque.core.i18n.tr
 
 /** Carte de réglage : libellé, grande valeur, boutons − / +, sélection pour le bouton rotatif. */
 class ValueCard(c: Context, label: String, icon: Icon.Kind) : LinearLayout(c) {
-    private val valueView = Ui.text(c, "", 64f, Ui.TEXT, Ui.LIGHT)
+    private val valueView = Ui.text(c, "", 54f, Ui.TEXT, Ui.LIGHT)
     private val unitView = Ui.text(c, "", 22f, Ui.TEXT2, Ui.LIGHT)
     private val subView = Ui.ellipsize(Ui.text(c, "", 16f, Ui.TEXT3))
     private val iconView = Icon(c, icon, Ui.TEXT2)
@@ -28,10 +28,10 @@ class ValueCard(c: Context, label: String, icon: Icon.Kind) : LinearLayout(c) {
 
     init {
         orientation = VERTICAL
-        setPadding(Ui.u(20), Ui.u(18), Ui.u(20), Ui.u(16))
+        setPadding(Ui.u(16), Ui.u(18), Ui.u(16), Ui.u(16))
         val head = Ui.horizontal(c)
         head.addView(iconView, LayoutParams(Ui.u(24), Ui.u(24)).apply { rightMargin = Ui.u(8) })
-        head.addView(Ui.text(c, label.uppercase(), 15f, Ui.TEXT2, Ui.MEDIUM).apply { letterSpacing = 0.08f })
+        head.addView(Ui.ellipsize(Ui.text(c, label.uppercase(), 14f, Ui.TEXT2, Ui.MEDIUM).apply { letterSpacing = 0.04f }))
         addView(head)
         val row = Ui.horizontal(c, Gravity.BOTTOM)
         row.addView(valueView)

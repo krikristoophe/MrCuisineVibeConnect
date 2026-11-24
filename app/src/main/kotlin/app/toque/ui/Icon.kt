@@ -12,7 +12,7 @@ class Icon(context: Context, var kind: Kind, color: Int) : View(context) {
     enum class Kind {
         BACK, SEARCH, PLAY, PAUSE, STOP, THERMO, SPEED, CLOCK, REVERSE, SCALE, BOOK, STAR, STAR_FILLED,
         SETTINGS, PLUS, MINUS, CHECK, CLOSE, KNEAD, STEAM, FLAME, BOLT, SYNC, LID, WARNING, HOME, WHISK,
-        CHEVRON, LINK, INFO, POT, TIMER, DROP, EDIT, TRASH, PEOPLE, DOWNLOAD, UPLOAD, GLOBE, BELL,
+        CHEVRON, LINK, INFO, POT, TIMER, DROP, EDIT, TRASH, PEOPLE, DOWNLOAD, UPLOAD, GLOBE, BELL, GRID,
     }
 
     var color: Int = color
@@ -183,6 +183,9 @@ class Icon(context: Context, var kind: Kind, color: Int) : View(context) {
             Kind.GLOBE -> {
                 canvas.drawCircle(12f, 12f, 9f, stroke); rect.set(8f, 3f, 16f, 21f); canvas.drawOval(rect, stroke)
                 canvas.drawLine(3f, 12f, 21f, 12f, stroke)
+            }
+            Kind.GRID -> {
+                for (x in floatArrayOf(6f, 12f, 18f)) for (y in floatArrayOf(6f, 12f, 18f)) canvas.drawCircle(x, y, 1.6f, fill)
             }
             Kind.BELL -> {
                 p.moveTo(6f, 17f); p.lineTo(6f, 11f); p.cubicTo(6f, 7f, 8.5f, 4.5f, 12f, 4.5f); p.cubicTo(15.5f, 4.5f, 18f, 7f, 18f, 11f)

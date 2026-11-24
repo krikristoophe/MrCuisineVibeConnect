@@ -51,7 +51,9 @@ class MainActivity : Activity() {
     private lateinit var root: FrameLayout
     private lateinit var content: FrameLayout
     private lateinit var overlay: FrameLayout
-    private lateinit var topBar: TopBar
+    private lateinit var topBar: SideRail
+    /** Titre de l'écran, au-dessus du contenu (masqué sur l'accueil). */
+    private lateinit var titleView: TextView
     private lateinit var machineBar: MachineBar
     private val stack = ArrayList<Screen>()
     private val main = Handler(Looper.getMainLooper())
@@ -85,14 +87,21 @@ class MainActivity : Activity() {
         // Peut prendre le focus : un champ de texte quitté (clavier fermé) le lui rend, sinon le
         // champ le garde et le bouton du robot n'arrive plus aux écrans.
         root.isFocusableInTouchMode = true
+        // Essai : menu latéral à gauche (rubriques, état, réglages) au lieu de la barre du haut,
+        // pour garder toute la hauteur de l'écran ; un titre compact au-dessus du contenu.
+        val frame = Ui.horizontal(this, Gravity.TOP)
+        topBar = SideRail(this)
+        frame.addView(topBar, LinearLayout.LayoutParams(Ui.u(80), Ui.MATCH))
         val column = Ui.vertical(this)
-        topBar = TopBar(this)
-        column.addView(topBar, Ui.lp(Ui.MATCH, Ui.u(70)))   // 60 + marge du haut
+        titleView = Ui.ellipsize(Ui.text(this, "", 22f, Ui.TEXT, Ui.MEDIUM))
+        titleView.setPadding(Ui.u(24), Ui.u(14), Ui.u(30), Ui.u(2))
+        column.addView(titleView, Ui.lp(Ui.MATCH, Ui.WRAP))
         content = FrameLayout(this)
         column.addView(content, Ui.lp(Ui.MATCH, 0, 1f))
         machineBar = MachineBar(this)
         column.addView(machineBar, Ui.lp(Ui.MATCH, Ui.WRAP))
-        root.addView(column, Ui.flp())
+        frame.addView(column, LinearLayout.LayoutParams(0, Ui.MATCH, 1f))
+        root.addView(frame, Ui.flp())
         overlay = FrameLayout(this)
         overlay.visibility = View.GONE
         root.addView(overlay, Ui.flp())
@@ -370,13 +379,19 @@ class MainActivity : Activity() {
         content.addView(v, Ui.flp())
         // Un écran qui revient ne rend pas la main à son champ de texte (le clavier se rouvrait).
         root.requestFocus()
-        topBar.setTitle(s.title, stack.size > 1)
+        showTitle(s.title)
         s.onShow()
         s.onSnapshot(snapshot)
     }
 
+    private fun showTitle(t: String) {
+        titleView.text = t
+        titleView.visibility = if (stack.size > 1) View.VISIBLE else View.GONE
+        topBar.setStack(stack)
+    }
+
     fun refreshTitle() {
-        current?.let { topBar.setTitle(it.title, stack.size > 1) }
+        current?.let { showTitle(it.title) }
     }
 
     override fun onBackPressed() {

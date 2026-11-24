@@ -657,5 +657,8 @@
   "Ce programme chauffe puis mixe à vitesse %d : confirmez le mixage chaud": "This program heats then blends at speed %d: confirm hot blending",
   "Ce programme chauffe puis mixe à vitesse élevée. Mixer chaud peut provoquer des projections.\n\nVérifiez que le couvercle est verrouillé, que le gobelet est en place et que le bol n'est pas trop rempli.": "This program heats then blends at high speed. Blending hot contents can splash.\n\nCheck that the lid is locked, the measuring cup is in place and the bowl is not overfilled.",
   "Rinçage": "Rinse",
-  "Laver et rincer le bol": "Wash and rinse the bowl"
+  "Laver et rincer le bol": "Wash and rinse the bowl",
+  "Retour": "Back",
+  "Accueil": "Home",
+  "Plus": "More"
 }
